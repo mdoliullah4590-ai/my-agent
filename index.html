@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>FlowAI — Agent Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{background:#0a0a0f;color:#e2e8f0;font-family:'IBM Plex Sans',sans-serif;height:100dvh;overflow:hidden;display:flex;flex-direction:column;}
+button,select,input,textarea{font-family:'IBM Plex Sans',sans-serif;outline:none;border:none;}
+::-webkit-scrollbar{width:3px;height:3px;} ::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:2px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+@keyframes pop{0%{transform:scale(.96);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes slideDown{from{opacity:0;max-height:0}to{opacity:1;max-height:2000px}}
+
+/* ── Layout ── */
+.topbar{background:#111118;border-bottom:1px solid #1e1e2e;padding:0 12px;height:48px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:10;}
+.logo{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:14px;color:#818cf8;letter-spacing:2px;flex-shrink:0;}
+.wf-input{background:transparent;color:#e2e8f0;font-size:13px;padding:4px 8px;border-radius:5px;border:1px solid transparent;flex:1;min-width:0;}
+.wf-input:focus{border-color:#3730a3;background:#1a1a2e;}
+.run-btn{background:#4f46e5;color:#fff;border-radius:8px;padding:9px 16px;font-weight:600;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;flex-shrink:0;transition:.15s;}
+.run-btn:active{background:#4338ca;}
+.run-btn:disabled{background:#252535;color:#444;cursor:not-allowed;}
+
+.tabs{display:flex;background:#111118;border-bottom:1px solid #1e1e2e;flex-shrink:0;}
+.tab{flex:1;padding:10px 0;background:transparent;border:none;border-bottom:2px solid transparent;color:#6b7280;font-size:11px;letter-spacing:1px;text-transform:uppercase;cursor:pointer;transition:.12s;}
+.tab.active{color:#818cf8;border-bottom-color:#818cf8;font-weight:600;}
+
+/* ── Flow tab ── */
+.flow-scroll{flex:1;overflow-y:auto;overflow-x:hidden;}
+.flow-inner{padding:12px 12px 80px;}
+
+/* ── Node card ── */
+.nc{background:#141420;border:1.5px solid #1e1e2e;border-radius:12px;margin-bottom:4px;overflow:hidden;animation:pop .15s;}
+.nc.sel{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.12);}
+.nc.run{border-color:#f59e0b;}
+.nc.done{border-color:#10b981;}
+.nc.err{border-color:#ef4444;}
+.nh{display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;user-select:none;}
+.ni{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.nprev{font-size:10px;color:#4b5563;font-family:'IBM Plex Mono',monospace;padding:0 14px 10px;word-break:break-all;line-height:1.5;}
+
+/* ── Config panel ── */
+.cfg{border-top:1px solid #1e1e2e;padding:14px;background:#0c0c16;overflow:hidden;}
+.fl{font-size:9px;font-weight:600;color:#6b7280;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;margin-top:12px;display:block;}
+.fl:first-child{margin-top:0;}
+.fi{width:100%;background:#1a1a2e;border:1px solid #252535;border-radius:6px;color:#e2e8f0;padding:9px 11px;font-size:12px;font-family:'IBM Plex Mono',monospace;transition:.15s;}
+.fi:focus{border-color:#4f46e5;background:#1c1c30;}
+.fta{width:100%;background:#1a1a2e;border:1px solid #252535;border-radius:6px;color:#e2e8f0;padding:9px 11px;font-size:11px;resize:vertical;min-height:75px;line-height:1.6;font-family:'IBM Plex Mono',monospace;transition:.15s;}
+.fta:focus{border-color:#4f46e5;background:#1c1c30;}
+.fse{width:100%;background:#1a1a2e;border:1px solid #252535;border-radius:6px;color:#e2e8f0;padding:9px 11px;font-size:12px;}
+.hint{font-size:10px;color:#4b5563;margin-top:4px;line-height:1.5;}
+.mode-opt{padding:9px 12px;border-radius:6px;margin-bottom:4px;cursor:pointer;font-size:12px;font-family:'IBM Plex Mono',monospace;border:1px solid;transition:.1s;user-select:none;}
+.out-box{background:#050510;border:1px solid rgba(16,185,129,.4);border-radius:6px;padding:10px;font-size:11px;color:#6ee7b7;font-family:'IBM Plex Mono',monospace;max-height:180px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;margin-top:6px;word-break:break-word;}
+.warn-box{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:6px;padding:9px 11px;font-size:10px;color:#fcd34d;line-height:1.5;margin-bottom:8px;}
+.info-box{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:6px;padding:9px 11px;font-size:10px;color:#6ee7b7;line-height:1.7;margin-top:8px;}
+.cbtn{padding:7px 12px;border-radius:6px;font-size:11px;cursor:pointer;border:1px solid;transition:.1s;font-weight:500;}
+
+/* ── Add bar ── */
+.add-bar{background:#111118;border-top:1px solid #1e1e2e;padding:8px 12px 12px;flex-shrink:0;}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.chips::-webkit-scrollbar{height:0;}
+.chip{display:flex;align-items:center;gap:5px;padding:6px 11px;border-radius:20px;font-size:11px;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid;transition:.1s;user-select:none;}
+.chip:active{opacity:.7;}
+
+/* ── Arrow ── */
+.arrow{text-align:center;padding:1px 0;font-size:14px;color:#2a2a3a;user-select:none;}
+
+/* ── Logs ── */
+.logs-scroll{flex:1;overflow-y:auto;padding:8px 12px;}
+.lrow{display:flex;gap:8px;padding:3.5px 0;font-size:11px;font-family:'IBM Plex Mono',monospace;border-bottom:1px solid #0f0f18;word-break:break-word;}
+.lt{color:#2a2a3a;flex-shrink:0;min-width:58px;font-size:10px;}
+.lclear{background:rgba(239,68,68,.1);color:#ef4444;border:1px solid rgba(239,68,68,.2);border-radius:5px;padding:4px 10px;font-size:10px;cursor:pointer;}
+
+/* ── Settings ── */
+.stg-scroll{flex:1;overflow-y:auto;padding:14px;}
+.scard{background:#141420;border:1px solid #1e1e2e;border-radius:10px;padding:14px;margin-bottom:10px;}
+.stitle{font-size:12px;font-weight:600;margin-bottom:10px;}
+
+/* ── Final output ── */
+.final-out{background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:14px;margin-top:8px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+// ── Node definitions ──────────────────────────────────────────
+const DEFS={
+  manual:   {label:"Manual Trigger",icon:"▶", color:"#10b981",cat:"trigger",desc:"Workflow শুরু করো"},
+  webhook:  {label:"Webhook",       icon:"⚡",color:"#22d3ee",cat:"trigger",desc:"HTTP trigger"},
+  scheduler:{label:"Scheduler",     icon:"⏱",color:"#f59e0b",cat:"trigger",desc:"Schedule এ চালাও"},
+  ai_agent: {label:"AI Agent",      icon:"✦", color:"#818cf8",cat:"action", desc:"Groq AI — Free!"},
+  http:     {label:"HTTP Request",  icon:"🌐",color:"#4f46e5",cat:"action", desc:"API call করো"},
+  code:     {label:"Code (JS)",     icon:"{}",color:"#fb923c",cat:"action", desc:"JavaScript চালাও"},
+  transform:{label:"Transform",     icon:"⚙", color:"#f59e0b",cat:"data",   desc:"Data বদলাও"},
+  condition:{label:"IF Condition",  icon:"◇", color:"#60a5fa",cat:"data",   desc:"শর্ত দিয়ে branch"},
+  email:    {label:"Send Email",    icon:"✉", color:"#fb923c",cat:"output", desc:"Email পাঠাও"},
+  slack:    {label:"Slack",         icon:"S", color:"#4ade80",cat:"output", desc:"Slack message"},
+  output:   {label:"Output",        icon:"◉", color:"#f87171",cat:"output", desc:"Result দেখো"},
+};
+
+let UID=20;
+const mkId=()=>String(++UID);
+
+// ── Deep clone default nodes so mutation never breaks reset ───
+const INIT_NODES=()=>[
+  {id:"1",type:"manual",  cfg:{},out:null,st:null},
+  {id:"2",type:"ai_agent",cfg:{sys:"You are a helpful assistant.",msg:"Say hello in Bengali! Be friendly.",model:"llama-3.3-70b-versatile"},out:null,st:null},
+  {id:"3",type:"output",  cfg:{},out:null,st:null},
+];
+const INIT_EDGES=()=>[{src:"1",tgt:"2"},{src:"2",tgt:"3"}];
+
+// ── Config fields per node type ───────────────────────────────
+function NodeCfg({node,set}){
+  const n=node;
+  return(<>
+    <span className="fl">Node Name</span>
+    <input className="fi" value={n.cfg.name||""} onChange={e=>set("name",e.target.value)} placeholder={DEFS[n.type].label}/>
+
+    {n.type==="webhook"&&<>
+      <span className="fl">Path</span>
+      <input className="fi" value={n.cfg.path||""} onChange={e=>set("path",e.target.value)} placeholder="/my-webhook"/>
+      <p className="hint">POST request এর data input হিসেবে pass হবে</p>
+    </>}
+
+    {n.type==="scheduler"&&<>
+      <span className="fl">Cron Expression</span>
+      <input className="fi" value={n.cfg.cron||""} onChange={e=>set("cron",e.target.value)} placeholder="0 9 * * *"/>
+      <p className="hint">Format: minute hour day month weekday</p>
+    </>}
+
+    {n.type==="ai_agent"&&<>
+      <span className="fl">Model (সবই Free)</span>
+      <select className="fse" value={n.cfg.model||"llama-3.3-70b-versatile"} onChange={e=>set("model",e.target.value)}>
+        <option value="llama-3.3-70b-versatile">⭐ Llama 3.3 70B — সবচেয়ে ভালো</option>
+        <option value="llama-3.1-8b-instant">⚡ Llama 3.1 8B — সবচেয়ে fast</option>
+        <option value="mixtral-8x7b-32768">Mixtral 8x7B — balanced</option>
+        <option value="gemma2-9b-it">Gemma 2 9B — Google</option>
+      </select>
+      <span className="fl">System Prompt</span>
+      <textarea className="fta" value={n.cfg.sys||""} onChange={e=>set("sys",e.target.value)} placeholder="You are a helpful assistant."/>
+      <span className="fl">User Message</span>
+      <textarea className="fta" value={n.cfg.msg||""} onChange={e=>set("msg",e.target.value)} placeholder="{{input}}"/>
+      <p className="hint">💡 <code style={{color:"#818cf8"}}>{"{{input}}"}</code> = আগের node এর output</p>
+    </>}
+
+    {n.type==="http"&&<>
+      <div className="warn-box">⚠ CORS issue হতে পারে। Public API (যেমন jsonplaceholder.typicode.com) তে কাজ করবে। Private API তে CORS error আসবে।</div>
+      <span className="fl">Method</span>
+      <select className="fse" value={n.cfg.method||"GET"} onChange={e=>set("method",e.target.value)}>
+        {["GET","POST","PUT","PATCH","DELETE"].map(m=><option key={m}>{m}</option>)}
+      </select>
+      <span className="fl">URL</span>
+      <input className="fi" value={n.cfg.url||""} onChange={e=>set("url",e.target.value)} placeholder="https://jsonplaceholder.typicode.com/posts/1"/>
+      <span className="fl">Request Body (POST/PUT)</span>
+      <textarea className="fta" style={{minHeight:60}} value={n.cfg.body||""} onChange={e=>set("body",e.target.value)} placeholder={'{"title":"{{input}}"}'}/>
+    </>}
+
+    {n.type==="code"&&<>
+      <span className="fl">JavaScript Code</span>
+      <textarea className="fta" style={{minHeight:120,fontSize:11}} value={n.cfg.code||""} onChange={e=>set("code",e.target.value)} placeholder={"// 'input' = আগের node এর output\n// এখানে code লেখো:\nreturn input.toUpperCase();"}/>
+      <p className="hint">Variable: <code style={{color:"#fb923c"}}>input</code> = previous node output</p>
+    </>}
+
+    {n.type==="transform"&&<>
+      <span className="fl">Mode বেছে নাও</span>
+      {[
+        {k:"uppercase",  l:"UPPERCASE — সব বড় হাতে"},
+        {k:"lowercase",  l:"lowercase — সব ছোট হাতে"},
+        {k:"trim",       l:"trim — আগে-পরের space বাদ"},
+        {k:"reverse",    l:"esreveR — উল্টো করো"},
+        {k:"word_count", l:"Word Count — কতটা শব্দ"},
+        {k:"char_count", l:"Char Count — কতটা অক্ষর"},
+      ].map(({k,l})=>(
+        <div key={k} className="mode-opt"
+          onClick={()=>set("mode",k)}
+          style={{background:n.cfg.mode===k?"rgba(79,70,229,.18)":"#141420",borderColor:n.cfg.mode===k?"#4f46e5":"#252535",color:n.cfg.mode===k?"#818cf8":"#6b7280"}}>
+          {n.cfg.mode===k?"✓ ":""}{l}
+        </div>
+      ))}
+    </>}
+
+    {n.type==="condition"&&<>
+      <span className="fl">Field / Expression</span>
+      <input className="fi" value={n.cfg.field||""} onChange={e=>set("field",e.target.value)} placeholder="input.length"/>
+      <span className="fl">Operator</span>
+      <select className="fse" value={n.cfg.op||">"} onChange={e=>set("op",e.target.value)}>
+        {[">",">=","<","<=","==","!=","contains","not_contains","starts_with","ends_with"].map(o=><option key={o} value={o}>{o}</option>)}
+      </select>
+      <span className="fl">Compare Value</span>
+      <input className="fi" value={n.cfg.val||""} onChange={e=>set("val",e.target.value)} placeholder="10"/>
+      <p className="hint">Pass হলে output pass হবে, Fail হলে empty pass হবে</p>
+    </>}
+
+    {n.type==="email"&&<>
+      <div className="warn-box">
+        ⚠ Email পাঠাতে <strong>EmailJS</strong> দরকার।<br/>
+        emailjs.com → Free account → Gmail connect → Service ID, Template ID, Public Key নাও
+      </div>
+      <span className="fl">EmailJS Service ID</span>
+      <input className="fi" value={n.cfg.serviceId||""} onChange={e=>set("serviceId",e.target.value)} placeholder="service_xxxxxxx"/>
+      <span className="fl">Template ID</span>
+      <input className="fi" value={n.cfg.templateId||""} onChange={e=>set("templateId",e.target.value)} placeholder="template_xxxxxxx"/>
+      <span className="fl">Public Key</span>
+      <input className="fi" value={n.cfg.publicKey||""} onChange={e=>set("publicKey",e.target.value)} placeholder="xxxxxxxxxxxxxxxxxxxx"/>
+      <span className="fl">To (Email)</span>
+      <input className="fi" value={n.cfg.to||""} onChange={e=>set("to",e.target.value)} placeholder="user@example.com"/>
+      <span className="fl">Subject</span>
+      <input className="fi" value={n.cfg.subject||""} onChange={e=>set("subject",e.target.value)} placeholder="FlowAI Result"/>
+      <span className="fl">Message Body</span>
+      <textarea className="fta" value={n.cfg.message||""} onChange={e=>set("message",e.target.value)} placeholder="{{input}}"/>
+    </>}
+
+    {n.type==="slack"&&<>
+      <span className="fl">Slack Webhook URL</span>
+      <input className="fi" value={n.cfg.webhookUrl||""} onChange={e=>set("webhookUrl",e.target.value)} placeholder="https://hooks.slack.com/services/..."/>
+      <p className="hint">Slack → Apps → Incoming Webhooks → Create webhook</p>
+      <span className="fl">Message</span>
+      <textarea className="fta" value={n.cfg.message||""} onChange={e=>set("message",e.target.value)} placeholder="{{input}}"/>
+    </>}
+  </>);
+}
+
+// ── Condition logic ───────────────────────────────────────────
+function evalCondition(fieldExpr, op, compareVal, inputStr){
+  try{
+    const fieldVal=new Function("input","return ("+fieldExpr+")")(inputStr);
+    const cv=compareVal;
+    switch(op){
+      case ">":  return Number(fieldVal)>Number(cv);
+      case ">=": return Number(fieldVal)>=Number(cv);
+      case "<":  return Number(fieldVal)<Number(cv);
+      case "<=": return Number(fieldVal)<=Number(cv);
+      case "==": return String(fieldVal)===String(cv);
+      case "!=": return String(fieldVal)!==String(cv);
+      case "contains":     return String(fieldVal).includes(cv);
+      case "not_contains": return !String(fieldVal).includes(cv);
+      case "starts_with":  return String(fieldVal).startsWith(cv);
+      case "ends_with":    return String(fieldVal).endsWith(cv);
+      default: return true;
+    }
+  }catch{return false;}
+}
+
+// ── Main App ──────────────────────────────────────────────────
+function App(){
+  const [tab,setTab]    =useState("flow");
+  const [wfName,setWfName]=useState("My Workflow");
+  const [nodes,setNodes]=useState(INIT_NODES);
+  const [edges,setEdges]=useState(INIT_EDGES);
+  const [selId,setSelId]=useState(null);
+  const [running,setRunning]=useState(false);
+  const [logs,setLogs]  =useState([]);
+  const [apiKey,setApiKey]=useState("");
+  const flowRef=useRef(null);
+
+  // Load saved key
+  useEffect(()=>{
+    const k=localStorage.getItem("flowai_groq");
+    if(k) setApiKey(k);
+  },[]);
+
+  const saveKey=k=>{setApiKey(k);localStorage.setItem("flowai_groq",k);};
+
+  // ── Rebuild linear edges from node array ──
+  const buildEdges=useCallback(arr=>arr.slice(0,-1).map((_,i)=>({src:arr[i].id,tgt:arr[i+1].id})),[]);
+
+  // ── Node operations ──
+  const addNode=useCallback(type=>{
+    const id=mkId();
+    const cfg=
+      type==="ai_agent"  ?{sys:"You are helpful.",msg:"{{input}}",model:"llama-3.3-70b-versatile"}:
+      type==="code"      ?{code:"return input;"}:
+      type==="transform" ?{mode:"uppercase"}:
+      type==="condition" ?{field:"input.length",op:">",val:"0"}:
+      type==="http"      ?{method:"GET",url:""}:
+      {};
+    setNodes(prev=>{
+      const next=[...prev,{id,type,cfg,out:null,st:null}];
+      setEdges(buildEdges(next));
+      return next;
+    });
+    setSelId(id);
+    // Scroll to bottom
+    setTimeout(()=>flowRef.current?.scrollTo({top:9999,behavior:"smooth"}),80);
+  },[buildEdges]);
+
+  const delNode=useCallback(id=>{
+    setSelId(p=>p===id?null:p);
+    setNodes(prev=>{
+      const next=prev.filter(n=>n.id!==id);
+      setEdges(buildEdges(next));
+      return next;
+    });
+  },[buildEdges]);
+
+  const moveNode=useCallback((id,dir)=>{
+    setNodes(prev=>{
+      const i=prev.findIndex(n=>n.id===id);
+      if(dir==="up"&&i===0) return prev;
+      if(dir==="down"&&i===prev.length-1) return prev;
+      const next=[...prev];
+      const j=dir==="up"?i-1:i+1;
+      [next[i],next[j]]=[next[j],next[i]];
+      setEdges(buildEdges(next));
+      return next;
+    });
+  },[buildEdges]);
+
+  const updateCfg=useCallback((id,cfg)=>{
+    setNodes(prev=>prev.map(n=>n.id===id?{...n,cfg}:n));
+  },[]);
+
+  // ── Logging ──
+  const addLog=useCallback((msg,type="info")=>{
+    setLogs(prev=>[...prev,{msg,type,t:new Date().toLocaleTimeString()}]);
+  },[]);
+
+  // ── Run Workflow ──────────────────────────────────────────
+  const run=useCallback(async()=>{
+    const currentNodes=[...nodes];
+    const currentEdges=[...edges];
+
+    if(!apiKey && currentNodes.some(n=>n.type==="ai_agent")){
+      setTab("settings");
+      setTimeout(()=>alert("⚠ Settings এ Groq API Key দাও!\n\nFree key পেতে:\nconsole.groq.com → Sign up → API Keys → Create"),100);
+      return;
+    }
+
+    setRunning(true);
+    setLogs([]);
+    setTab("logs");
+    setNodes(prev=>prev.map(n=>({...n,st:null,out:null})));
+
+    // Build execution order (BFS from first trigger)
+    const trigger=currentNodes.find(n=>["manual","webhook","scheduler"].includes(n.type));
+    if(!trigger){
+      addLog("❌ কোনো Trigger node নেই! Manual Trigger যোগ করো।","err");
+      setRunning(false);
+      return;
+    }
+    const order=[];
+    const seen=new Set();
+    const q=[trigger.id];
+    while(q.length){
+      const id=q.shift();
+      if(seen.has(id)) continue;
+      seen.add(id); order.push(id);
+      currentEdges.filter(e=>e.src===id).forEach(e=>q.push(e.tgt));
+    }
+
+    addLog(`▶ "${wfName}" চালু — ${order.length}টি node`);
+    const outs={};
+
+    for(const nid of order){
+      const node=currentNodes.find(n=>n.id===nid);
+      if(!node) continue;
+
+      setNodes(prev=>prev.map(n=>n.id===nid?{...n,st:"run"}:n));
+      const def=DEFS[node.type];
+      addLog(`⟶ [${def.label}]${node.cfg.name?" — "+node.cfg.name:""}`);
+
+      const prev=currentEdges
+        .filter(e=>e.tgt===nid)
+        .map(e=>outs[e.src]||"")
+        .filter(Boolean)
+        .join("\n");
+
+      let result="";
+      try{
+        // ── Trigger nodes ──
+        if(["manual","webhook","scheduler"].includes(node.type)){
+          result="Triggered ✓";
+          addLog("  ✓ Trigger fired","ok");
+        }
+
+        // ── AI Agent (Groq) ──
+        else if(node.type==="ai_agent"){
+          const model=node.cfg.model||"llama-3.3-70b-versatile";
+          addLog(`  → Groq calling (${model})…`);
+          const userMsg=(node.cfg.msg||"{{input}}").replace(/\{\{input\}\}/g,prev||"Hello");
+          const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+            body:JSON.stringify({model,max_tokens:800,messages:[
+              {role:"system",content:node.cfg.sys||"You are helpful."},
+              {role:"user",content:userMsg},
+            ]}),
+          });
+          const data=await res.json();
+          if(data.error) throw new Error(data.error.message);
+          result=data.choices?.[0]?.message?.content||"(no response)";
+          addLog(`  ✓ AI replied — ${result.length} chars`,"ok");
+        }
+
+        // ── HTTP Request ──
+        else if(node.type==="http"){
+          if(!node.cfg.url||!node.cfg.url.trim()) throw new Error("URL দাও! URL field empty আছে।");
+          addLog(`  → ${node.cfg.method||"GET"} ${node.cfg.url}`);
+          const opts={method:node.cfg.method||"GET",headers:{"Content-Type":"application/json"}};
+          if(node.cfg.body&&!["GET","HEAD"].includes(node.cfg.method))
+            opts.body=node.cfg.body.replace(/\{\{input\}\}/g,prev);
+          const res=await fetch(node.cfg.url,opts);
+          result=await res.text();
+          addLog(`  ✓ HTTP ${res.status} — ${result.length} chars`,"ok");
+        }
+
+        // ── Code ──
+        else if(node.type==="code"){
+          const code=node.cfg.code||"return input;";
+          const fn=new Function("input",code);
+          const raw=fn(prev);
+          result=raw===null||raw===undefined?"":String(raw);
+          addLog("  ✓ Code executed","ok");
+        }
+
+        // ── Transform ──
+        else if(node.type==="transform"){
+          const m=node.cfg.mode||"uppercase";
+          switch(m){
+            case "uppercase":  result=prev.toUpperCase(); break;
+            case "lowercase":  result=prev.toLowerCase(); break;
+            case "trim":       result=prev.trim(); break;
+            case "reverse":    result=[...prev].reverse().join(""); break;
+            case "word_count": result=`${prev.trim().split(/\s+/).filter(Boolean).length} words`; break;
+            case "char_count": result=`${prev.length} characters`; break;
+            default: result=prev;
+          }
+          addLog(`  ✓ Transform: ${m}`,"ok");
+        }
+
+        // ── IF Condition ──
+        else if(node.type==="condition"){
+          const pass=evalCondition(node.cfg.field||"input.length",node.cfg.op||">",node.cfg.val||"0",prev);
+          result=pass?prev:"";
+          addLog(`  ${pass?"✓ PASS":"✗ FAIL"}: condition ${pass?"met, passing output":"not met, empty output"}`,pass?"ok":"warn");
+        }
+
+        // ── Email (EmailJS) ──
+        else if(node.type==="email"){
+          const {serviceId,templateId,publicKey,to,subject,message}=node.cfg;
+          if(serviceId&&templateId&&publicKey){
+            const body=(message||"{{input}}").replace(/\{\{input\}\}/g,prev);
+            const res=await fetch("https://api.emailjs.com/api/v1.0/email/send",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({
+                service_id:serviceId,
+                template_id:templateId,
+                user_id:publicKey,
+                template_params:{to_email:to||"",subject:subject||"FlowAI",message:body},
+              }),
+            });
+            if(!res.ok){const t=await res.text();throw new Error(`EmailJS error: ${t}`);}
+            result=`✉ Email sent to ${to}`;
+            addLog(`  ✓ Email sent to ${to}`,"ok");
+          }else{
+            result="[Email — configure EmailJS keys in node settings]";
+            addLog("  ⚠ Email simulated (EmailJS not configured)","warn");
+          }
+        }
+
+        // ── Slack ──
+        else if(node.type==="slack"){
+          if(node.cfg.webhookUrl){
+            const msg=(node.cfg.message||"{{input}}").replace(/\{\{input\}\}/g,prev);
+            const res=await fetch(node.cfg.webhookUrl,{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({text:msg}),
+            });
+            result=res.ok?"✓ Slack message sent":`Slack error: ${res.status}`;
+            addLog(res.ok?"  ✓ Slack sent":"  ✕ Slack failed",res.ok?"ok":"err");
+          }else{
+            result="[Slack — add webhook URL in node settings]";
+            addLog("  ⚠ Slack simulated (no webhook URL)","warn");
+          }
+        }
+
+        // ── Output ──
+        else if(node.type==="output"){
+          result=prev||"(no input received)";
+          addLog("  ✓ Output captured","ok");
+        }
+
+        outs[nid]=result;
+        setNodes(prev=>prev.map(n=>n.id===nid?{...n,st:"done",out:result}:n));
+        await new Promise(r=>setTimeout(r,300));
+
+      }catch(err){
+        const msg=err.message||String(err);
+        addLog(`  ✕ Error: ${msg}`,"err");
+        setNodes(prev=>prev.map(n=>n.id===nid?{...n,st:"err",out:`ERROR: ${msg}`}:n));
+        outs[nid]="";
+      }
+    }
+
+    addLog("─────────────────","info");
+    addLog("✅ Workflow সম্পন্ন!","ok");
+    setRunning(false);
+    // Stay on logs tab so user can see results
+  },[nodes,edges,apiKey,wfName,addLog]);
+
+  const lastOut=nodes.filter(n=>n.st==="done"&&n.out&&n.type!=="manual"&&n.type!=="webhook"&&n.type!=="scheduler").slice(-1)[0]?.out;
+
+  const resetWorkflow=()=>{
+    if(confirm("সব মুছে দেবো?")){
+      setNodes(INIT_NODES());
+      setEdges(INIT_EDGES());
+      setLogs([]);
+      setSelId(null);
+    }
+  };
+
+  return(<>
+    {/* ── TOP BAR ── */}
+    <div className="topbar">
+      <span className="logo">FLOW</span>
+      <input className="wf-input" value={wfName} onChange={e=>setWfName(e.target.value)} maxLength={40}/>
+      <button className="run-btn" onClick={run} disabled={running}>
+        {running
+          ?<><span style={{width:11,height:11,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",display:"inline-block",animation:"spin .6s linear infinite"}}/> চলছে…</>
+          :"▶ Run"
+        }
+      </button>
+    </div>
+
+    {/* ── TABS ── */}
+    <div className="tabs">
+      <button className={`tab ${tab==="flow"?"active":""}`} onClick={()=>setTab("flow")}>◈ Flow</button>
+      <button className={`tab ${tab==="logs"?"active":""}`} onClick={()=>setTab("logs")}>
+        ▤ Logs{logs.length?` (${logs.length})`:""}
+      </button>
+      <button className={`tab ${tab==="settings"?"active":""}`} onClick={()=>setTab("settings")}>⚙ Settings</button>
+    </div>
+
+    {/* ── FLOW TAB ── */}
+    {tab==="flow"&&<>
+      <div className="flow-scroll" ref={flowRef}>
+        <div className="flow-inner">
+          {nodes.length===0&&(
+            <div style={{textAlign:"center",padding:"60px 20px",color:"#374151"}}>
+              <div style={{fontSize:36,marginBottom:12,opacity:.2}}>◈</div>
+              <div style={{fontSize:13,marginBottom:4}}>Workflow খালি</div>
+              <div style={{fontSize:11,color:"#374151"}}>নিচে node বাটন দিয়ে শুরু করো</div>
+            </div>
+          )}
+          {nodes.map((node,i)=>{
+            const def=DEFS[node.type];
+            const open=selId===node.id;
+            const stColor=node.st==="run"?"#f59e0b":node.st==="done"?"#10b981":node.st==="err"?"#ef4444":null;
+            return(
+              <div key={node.id}>
+                <div className={`nc ${open?"sel":""} ${node.st||""}`}>
+                  {/* Header */}
+                  <div className="nh" onClick={()=>setSelId(open?null:node.id)}>
+                    <div className="ni" style={{background:def.color+"20",color:def.color}}>{def.icon}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:600,color:def.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                        {node.cfg.name||def.label}
+                      </div>
+                      <div style={{fontSize:9,color:"#4b5563",marginTop:1}}>{def.desc}</div>
+                    </div>
+                    {stColor&&<div style={{width:8,height:8,borderRadius:"50%",background:stColor,flexShrink:0,animation:node.st==="run"?"blink 1s infinite":"none"}}/>}
+                    <span style={{color:"#374151",fontSize:10,marginLeft:4,flexShrink:0}}>{open?"▲":"▼"}</span>
+                  </div>
+                  {/* Preview (collapsed) */}
+                  {!open&&node.out&&(
+                    <div className="nprev" style={{color:node.st==="err"?"#f87171":"#6ee7b7"}}>
+                      → {node.out.slice(0,90)}{node.out.length>90?"…":""}
+                    </div>
+                  )}
+                  {/* Config panel (expanded) */}
+                  {open&&(
+                    <div className="cfg">
+                      <NodeCfg node={node} set={(k,v)=>updateCfg(node.id,{...node.cfg,[k]:v})}/>
+                      {/* Output */}
+                      {node.out&&<>
+                        <span className="fl" style={{color:node.st==="err"?"#f87171":"#10b981"}}>
+                          {node.st==="err"?"✕ Error":"✓ Output"}
+                        </span>
+                        <div className="out-box" style={{borderColor:node.st==="err"?"rgba(248,113,113,.4)":"rgba(16,185,129,.4)",color:node.st==="err"?"#f87171":"#6ee7b7"}}>
+                          {node.out}
+                        </div>
+                      </>}
+                      {/* Move / Delete buttons */}
+                      <div style={{display:"flex",gap:6,marginTop:14,flexWrap:"wrap"}}>
+                        {i>0&&(
+                          <button className="cbtn" onClick={()=>moveNode(node.id,"up")}
+                            style={{color:"#818cf8",borderColor:"rgba(129,140,248,.3)",background:"rgba(129,140,248,.08)"}}>
+                            ↑ Up
+                          </button>
+                        )}
+                        {i<nodes.length-1&&(
+                          <button className="cbtn" onClick={()=>moveNode(node.id,"down")}
+                            style={{color:"#818cf8",borderColor:"rgba(129,140,248,.3)",background:"rgba(129,140,248,.08)"}}>
+                            ↓ Down
+                          </button>
+                        )}
+                        <button className="cbtn" onClick={()=>setSelId(null)}
+                          style={{color:"#6b7280",borderColor:"#252535",background:"transparent"}}>
+                          ✕ Close
+                        </button>
+                        <button className="cbtn" onClick={()=>delNode(node.id)}
+                          style={{color:"#ef4444",borderColor:"rgba(239,68,68,.25)",background:"rgba(239,68,68,.08)",marginLeft:"auto"}}>
+                          🗑 Delete
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                {i<nodes.length-1&&<div className="arrow">↓</div>}
+              </div>
+            );
+          })}
+
+          {/* Final output banner */}
+          {lastOut&&(
+            <div className="final-out">
+              <div style={{fontSize:9,color:"#6ee7b7",fontWeight:700,letterSpacing:1.5,textTransform:"uppercase",marginBottom:8}}>✅ Final Output</div>
+              <div style={{fontSize:12,color:"#a7f3d0",fontFamily:"monospace",lineHeight:1.7,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{lastOut}</div>
+              <button onClick={()=>{navigator.clipboard?.writeText(lastOut).then(()=>alert("Copied!")).catch(()=>alert(lastOut.slice(0,300)));}}
+                style={{marginTop:10,padding:"6px 12px",background:"rgba(16,185,129,.15)",color:"#6ee7b7",border:"1px solid rgba(16,185,129,.3)",borderRadius:5,fontSize:11,cursor:"pointer"}}>
+                📋 Copy Output
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── ADD NODE BAR ── */}
+      <div className="add-bar">
+        <div className="chips">
+          {Object.entries(DEFS).map(([type,def])=>(
+            <div key={type} className="chip"
+              style={{color:def.color,borderColor:def.color+"44",background:def.color+"0f"}}
+              onClick={()=>addNode(type)}>
+              <span style={{fontFamily:"monospace",fontSize:13}}>{def.icon}</span>
+              <span>{def.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>}
+
+    {/* ── LOGS TAB ── */}
+    {tab==="logs"&&(
+      <div className="logs-scroll">
+        <div style={{display:"flex",alignItems:"center",padding:"8px 12px",borderBottom:"1px solid #1e1e2e",gap:8}}>
+          <span style={{fontSize:10,color:"#4b5563",flex:1}}>{logs.length} log entries</span>
+          {logs.length>0&&<button className="lclear" onClick={()=>setLogs([])}>Clear</button>}
+        </div>
+        {logs.length===0
+          ?<div style={{textAlign:"center",padding:"60px 0",color:"#374151",fontSize:12}}>
+            ▶ Run চাপলে এখানে live logs দেখাবে
+          </div>
+          :logs.map((l,i)=>(
+            <div key={i} className="lrow"
+              style={{color:l.type==="err"?"#ef4444":l.type==="ok"?"#10b981":l.type==="warn"?"#f59e0b":"#6b7280"}}>
+              <span className="lt">{l.t}</span>
+              <span>{l.msg}</span>
+            </div>
+          ))
+        }
+      </div>
+    )}
+
+    {/* ── SETTINGS TAB ── */}
+    {tab==="settings"&&(
+      <div className="stg-scroll">
+        {/* Groq API Key */}
+        <div className="scard">
+          <div className="stitle">
+            🆓 Groq API Key
+            <span style={{background:"rgba(16,185,129,.18)",color:"#10b981",padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,marginLeft:8}}>100% FREE</span>
+          </div>
+          <input type="password" className="fi" value={apiKey}
+            onChange={e=>saveKey(e.target.value)}
+            placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxx"
+            style={{marginBottom:8}}/>
+          {apiKey&&<div style={{fontSize:11,color:"#10b981",marginBottom:8}}>✓ Key saved! {apiKey.slice(0,8)}…</div>}
+          <div className="info-box">
+            <div style={{fontWeight:600,marginBottom:4}}>Free key পাওয়ার উপায়:</div>
+            1️⃣ <span style={{color:"#818cf8"}}>console.groq.com</span> এ যাও<br/>
+            2️⃣ Google দিয়ে Sign up করো<br/>
+            3️⃣ বাম দিকে "API Keys" click করো<br/>
+            4️⃣ "Create API Key" বাটন চাপো<br/>
+            5️⃣ Key copy → এখানে paste করো<br/>
+            <span style={{color:"#374151",fontSize:10,marginTop:4,display:"block"}}>Free tier: প্রতিদিন হাজার হাজার request!</span>
+          </div>
+        </div>
+
+        {/* EmailJS */}
+        <div className="scard">
+          <div className="stitle">📧 Email (EmailJS)</div>
+          <div style={{fontSize:11,color:"#6b7280",lineHeight:1.8}}>
+            1️⃣ <span style={{color:"#818cf8"}}>emailjs.com</span> → Free account<br/>
+            2️⃣ Email Services → Gmail connect<br/>
+            3️⃣ Service ID copy করো<br/>
+            4️⃣ Email Templates → নতুন template<br/>
+            5️⃣ Template ID copy করো<br/>
+            6️⃣ Account → General → Public Key<br/>
+            7️⃣ Email node এ 3টাই দাও<br/>
+            <span style={{fontSize:10,color:"#374151"}}>Free: 200 emails/month</span>
+          </div>
+        </div>
+
+        {/* Workflow info */}
+        <div className="scard">
+          <div className="stitle">⚙ Workflow Info</div>
+          <div style={{fontSize:11,color:"#6b7280",lineHeight:1.8,marginBottom:10}}>
+            📛 Name: <span style={{color:"#e2e8f0"}}>{wfName}</span><br/>
+            🔢 Nodes: <span style={{color:"#e2e8f0"}}>{nodes.length}</span><br/>
+            🔗 Connections: <span style={{color:"#e2e8f0"}}>{edges.length}</span><br/>
+            🔑 API Key: <span style={{color:apiKey?"#10b981":"#ef4444"}}>{apiKey?"Saved ✓":"Not set ✗"}</span>
+          </div>
+          <button onClick={resetWorkflow}
+            style={{padding:"8px 14px",background:"rgba(239,68,68,.1)",color:"#ef4444",border:"1px solid rgba(239,68,68,.2)",borderRadius:6,fontSize:11,cursor:"pointer",width:"100%"}}>
+            🗑 Workflow Reset করো
+          </button>
+        </div>
+      </div>
+    )}
+  </>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
