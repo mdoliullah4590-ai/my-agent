@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FlowAI — AI Agent Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #141417;
+  --surface2: #1c1c21;
+  --border: #2a2a32;
+  --border2: #38383f;
+  --text: #e8e8ed;
+  --text2: #8e8e9a;
+  --text3: #55555f;
+  --accent: #5b8af5;
+  --green: #3ecf8e;
+  --yellow: #f5a623;
+  --red: #f05454;
+  --purple: #a78bfa;
+  --cyan: #22d3ee;
+  --orange: #fb923c;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'IBM Plex Sans',sans-serif;overflow:hidden;height:100vh;}
+button{font-family:'IBM Plex Sans',sans-serif;cursor:pointer;outline:none;border:none;}
+input,textarea,select{font-family:'IBM Plex Mono',monospace;outline:none;border:none;}
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:var(--surface);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+
+/* Layout */
+.app{display:grid;grid-template-rows:44px 1fr;grid-template-columns:220px 1fr 280px;height:100vh;overflow:hidden;}
+.topbar{grid-column:1/-1;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;z-index:100;}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;overflow-x:hidden;}
+.canvas-wrap{position:relative;overflow:hidden;background:var(--bg);}
+.inspector{background:var(--surface);border-left:1px solid var(--border);overflow-y:auto;}
+
+/* Topbar */
+.logo{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:var(--accent);letter-spacing:2px;margin-right:8px;}
+.wf-name{background:transparent;color:var(--text);font-size:13px;padding:4px 8px;border-radius:4px;border:1px solid transparent;transition:.15s;}
+.wf-name:hover{border-color:var(--border2);}
+.wf-name:focus{border-color:var(--accent);background:var(--surface2);}
+.btn{padding:6px 14px;border-radius:5px;font-size:12px;font-weight:500;transition:.15s;letter-spacing:.3px;}
+.btn-primary{background:var(--accent);color:#fff;}
+.btn-primary:hover{background:#4a79e4;}
+.btn-primary:disabled{background:#2a3a5a;color:#4a5a7a;cursor:not-allowed;}
+.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);}
+.btn-green{background:var(--green);color:#052e1a;}
+.btn-green:hover{background:#35bb7e;}
+.tag{padding:2px 8px;border-radius:3px;font-size:10px;font-weight:600;font-family:'IBM Plex Mono',monospace;letter-spacing:1px;}
+
+/* Sidebar */
+.sidebar-section{padding:10px;}
+.sidebar-title{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:2px;text-transform:uppercase;padding:8px 10px 4px;}
+.node-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:grab;transition:.12s;margin-bottom:2px;user-select:none;}
+.node-item:hover{background:var(--surface2);}
+.node-item:active{cursor:grabbing;}
+.node-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+.node-info{flex:1;}
+.node-label{font-size:12px;color:var(--text);}
+.node-sub{font-size:10px;color:var(--text3);}
+
+/* Canvas dots */
+.canvas-dots{position:absolute;inset:0;pointer-events:none;}
+
+/* Node cards */
+.node-card{position:absolute;width:200px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;cursor:default;user-select:none;transition:border-color .15s,box-shadow .15s;}
+.node-card:hover{border-color:var(--border2);}
+.node-card.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(91,138,245,.15);}
+.node-card.running{border-color:var(--yellow);box-shadow:0 0 0 3px rgba(245,166,35,.15);}
+.node-card.done{border-color:var(--green);box-shadow:0 0 0 3px rgba(62,207,142,.1);}
+.node-card.error{border-color:var(--red);box-shadow:0 0 0 3px rgba(240,84,84,.1);}
+.node-header{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:8px 8px 0 0;border-bottom:1px solid var(--border);}
+.node-title{font-size:11px;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.node-body{padding:8px 11px;font-size:10px;color:var(--text2);font-family:'IBM Plex Mono',monospace;min-height:28px;line-height:1.5;}
+.port{position:absolute;width:14px;height:14px;border-radius:50%;cursor:crosshair;z-index:20;transition:.15s;}
+.port-in{left:-7px;top:50%;transform:translateY(-50%);background:var(--surface);border:2px solid var(--border2);}
+.port-out{right:-7px;top:50%;transform:translateY(-50%);background:var(--surface);border:2px solid var(--border2);}
+.port:hover{transform:translateY(-50%) scale(1.4);}
+.port-out:hover{border-color:var(--accent);}
+.port-in:hover{border-color:var(--green);}
+.port.active{background:var(--accent);border-color:var(--accent);}
+
+/* Status dot */
+.status-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+
+/* Inspector */
+.insp-header{padding:12px 14px;border-bottom:1px solid var(--border);}
+.insp-title{font-size:12px;font-weight:600;}
+.insp-sub{font-size:10px;color:var(--text3);margin-top:1px;}
+.field-group{padding:10px 14px;border-bottom:1px solid var(--border);}
+.field-label{font-size:9px;font-weight:600;color:var(--text3);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px;}
+.field-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 9px;font-size:12px;transition:.15s;}
+.field-input:focus{border-color:var(--accent);}
+.field-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 9px;font-size:11px;resize:vertical;min-height:80px;transition:.15s;line-height:1.5;}
+.field-textarea:focus{border-color:var(--accent);}
+.field-select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--text);padding:7px 9px;font-size:12px;}
+.output-box{background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:8px;font-size:10px;color:var(--green);font-family:'IBM Plex Mono',monospace;max-height:150px;overflow-y:auto;white-space:pre-wrap;line-height:1.6;}
+
+/* Logs panel */
+.logs-bar{position:absolute;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);transition:height .2s;z-index:50;}
+.log-row{display:flex;gap:10px;padding:2px 14px;font-size:11px;font-family:'IBM Plex Mono',monospace;}
+.log-time{color:var(--text3);flex-shrink:0;width:62px;}
+
+/* Animations */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Tooltip */
+.tooltip{position:relative;}
+.tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#000;color:#fff;font-size:10px;padding:3px 8px;border-radius:4px;white-space:nowrap;z-index:999;pointer-events:none;}
+
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .15s;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:420px;max-width:90vw;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:6px;}
+.modal-sub{font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.5;}
+
+/* Template cards */
+.tmpl-card{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:6px;cursor:pointer;transition:.12s;}
+.tmpl-card:hover{border-color:var(--accent);background:rgba(91,138,245,.05);}
+.tmpl-title{font-size:12px;font-weight:500;margin-bottom:2px;}
+.tmpl-desc{font-size:10px;color:var(--text3);}
+
+/* Execution history */
+.exec-row{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:5px;cursor:pointer;transition:.1s;}
+.exec-row:hover{background:var(--surface2);}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useRef, useEffect, useCallback } = React;
+
+// ─── Node Definitions ───────────────────────────────────────
+const NODE_DEFS = {
+  // Triggers
+  manual:    { cat:"trigger", label:"Manual Trigger",   icon:"▶",  color:"#3ecf8e", desc:"Run manually" },
+  webhook:   { cat:"trigger", label:"Webhook",          icon:"🔗", color:"#22d3ee", desc:"Receive HTTP request" },
+  scheduler: { cat:"trigger", label:"Scheduler",        icon:"⏱",  color:"#f5a623", desc:"Run on schedule" },
+  // Actions
+  ai_agent:  { cat:"action",  label:"AI Agent",         icon:"✦",  color:"#a78bfa", desc:"Claude AI node" },
+  http:      { cat:"action",  label:"HTTP Request",     icon:"🌐", color:"#5b8af5", desc:"Call any API" },
+  code:      { cat:"action",  label:"Code (JS)",        icon:"</>", color:"#fb923c", desc:"Run JavaScript" },
+  // Data
+  transform: { cat:"data",    label:"Transform",        icon:"⚙",  color:"#f5a623", desc:"Modify data" },
+  condition: { cat:"data",    label:"IF / Condition",   icon:"◇",  color:"#60a5fa", desc:"Branch workflow" },
+  setfields: { cat:"data",    label:"Set Fields",       icon:"≡",  color:"#94a3b8", desc:"Add/edit fields" },
+  filter:    { cat:"data",    label:"Filter",           icon:"⊘",  color:"#f87171", desc:"Filter items" },
+  // Output
+  slack:     { cat:"output",  label:"Slack",            icon:"S",  color:"#4ade80", desc:"Send Slack message" },
+  email:     { cat:"output",  label:"Send Email",       icon:"✉",  color:"#fb923c", desc:"Send email" },
+  output:    { cat:"output",  label:"Output / Debug",   icon:"◉",  color:"#f87171", desc:"View result" },
+};
+
+const CATEGORIES = [
+  { key:"trigger", label:"Triggers" },
+  { key:"action",  label:"Actions" },
+  { key:"data",    label:"Data" },
+  { key:"output",  label:"Output" },
+];
+
+const TEMPLATES = [
+  { id:"t1", name:"AI Email Responder", desc:"Webhook → AI Agent → Send Email", icon:"✉", nodes:[
+    {id:"n1",type:"webhook",  pos:{x:80, y:150}, cfg:{path:"/email-hook"},  out:null,st:null},
+    {id:"n2",type:"ai_agent", pos:{x:340,y:150}, cfg:{sys:"You are a professional email assistant. Reply formally.",msg:"Reply to this email: {{input}}"},out:null,st:null},
+    {id:"n3",type:"email",    pos:{x:600,y:150}, cfg:{to:"user@example.com",subject:"AI Reply"},out:null,st:null},
+  ], edges:[{id:"e1",src:"n1",tgt:"n2"},{id:"e2",src:"n2",tgt:"n3"}]},
+  { id:"t2", name:"Content Generator", desc:"Manual → AI Agent → Transform → Output", icon:"✍", nodes:[
+    {id:"n1",type:"manual",   pos:{x:80, y:150}, cfg:{},out:null,st:null},
+    {id:"n2",type:"ai_agent", pos:{x:340,y:150}, cfg:{sys:"You are a creative content writer.",msg:"Write a short blog post about: {{input}}"},out:null,st:null},
+    {id:"n3",type:"transform",pos:{x:600,y:150}, cfg:{mode:"uppercase"},out:null,st:null},
+    {id:"n4",type:"output",   pos:{x:860,y:150}, cfg:{},out:null,st:null},
+  ], edges:[{id:"e1",src:"n1",tgt:"n2"},{id:"e2",src:"n2",tgt:"n3"},{id:"e3",src:"n3",tgt:"n4"}]},
+  { id:"t3", name:"API → AI → Slack", desc:"Fetch API data, process with AI, notify Slack", icon:"🔄", nodes:[
+    {id:"n1",type:"scheduler",pos:{x:80, y:150}, cfg:{cron:"0 9 * * *"},out:null,st:null},
+    {id:"n2",type:"http",     pos:{x:340,y:150}, cfg:{url:"https://api.example.com/data",method:"GET"},out:null,st:null},
+    {id:"n3",type:"ai_agent", pos:{x:600,y:150}, cfg:{sys:"Summarize data concisely.",msg:"Summarize: {{input}}"},out:null,st:null},
+    {id:"n4",type:"slack",    pos:{x:860,y:150}, cfg:{channel:"#general",message:"{{input}}"},out:null,st:null},
+  ], edges:[{id:"e1",src:"n1",tgt:"n2"},{id:"e2",src:"n2",tgt:"n3"},{id:"e3",src:"n3",tgt:"n4"}]},
+];
+
+let UID = 100;
+const newId = () => String(++UID);
+
+// ─── Default workflow ────────────────────────────────────────
+const DEFAULT_NODES = [
+  {id:"1",type:"manual",   pos:{x:80, y:200},cfg:{},out:null,st:null},
+  {id:"2",type:"ai_agent", pos:{x:350,y:200},cfg:{sys:"You are a helpful assistant.",msg:"{{input}}"},out:null,st:null},
+  {id:"3",type:"output",   pos:{x:620,y:200},cfg:{},out:null,st:null},
+];
+const DEFAULT_EDGES = [
+  {id:"e1",src:"1",tgt:"2"},
+  {id:"e2",src:"2",tgt:"3"},
+];
+
+// ─── Helpers ─────────────────────────────────────────────────
+function bezier(x1,y1,x2,y2){
+  const cx=(x1+x2)/2;
+  return `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`;
+}
+
+// ─── Node Card ───────────────────────────────────────────────
+function NodeCard({node, selected, connecting, onDragStart, onPortClick, onSelect}){
+  const def = NODE_DEFS[node.type];
+  const statusClass = node.st==="run"?"running":node.st==="done"?"done":node.st==="err"?"error":"";
+  return (
+    <div
+      className={`node-card ${selected?"selected":""} ${statusClass}`}
+      style={{left:node.pos.x,top:node.pos.y}}
+      onMouseDown={e=>{e.stopPropagation();onDragStart(e,node.id);onSelect(node.id);}}
+      onTouchStart={e=>{e.stopPropagation();onDragStart(e,node.id);onSelect(node.id);}}
+    >
+      <div className="node-header" style={{background:def.color+"18"}}>
+        <div className="node-icon" style={{background:def.color+"28",color:def.color,fontSize:12,width:24,height:24,borderRadius:5,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"monospace"}}>
+          {def.icon}
+        </div>
+        <span className="node-title" style={{color:def.color}}>{node.cfg.name||def.label}</span>
+        {node.st==="run" && <div className="status-dot" style={{background:"#f5a623",animation:"pulse 1s infinite"}}/>}
+        {node.st==="done" && <div className="status-dot" style={{background:"#3ecf8e"}}/>}
+        {node.st==="err" && <div className="status-dot" style={{background:"#f05454"}}/>}
+      </div>
+      <div className="node-body">
+        {node.type==="manual"    && <span style={{color:"#3ecf8e"}}>manual trigger</span>}
+        {node.type==="webhook"   && <span style={{color:"#22d3ee"}}>{node.cfg.path||"/webhook"}</span>}
+        {node.type==="scheduler" && <span style={{color:"#f5a623"}}>{node.cfg.cron||"0 * * * *"}</span>}
+        {node.type==="ai_agent"  && <span style={{color:"#c4b5fd",fontSize:9}}>{node.cfg.sys?.slice(0,40)||"configure AI agent"}</span>}
+        {node.type==="http"      && <span style={{color:"#5b8af5"}}>{node.cfg.method||"GET"} {(node.cfg.url||"https://...").slice(0,28)}</span>}
+        {node.type==="code"      && <span style={{color:"#fb923c"}}>{node.cfg.code?.slice(0,36)||"// write code here"}</span>}
+        {node.type==="transform" && <span>{node.cfg.mode||"uppercase"}</span>}
+        {node.type==="condition" && <span style={{color:"#60a5fa"}}>if {node.cfg.field||"value"} {node.cfg.op||">"} {node.cfg.val||"0"}</span>}
+        {node.type==="setfields" && <span>{node.cfg.fields||"key = value"}</span>}
+        {node.type==="filter"    && <span style={{color:"#f87171"}}>{node.cfg.expr||"x.length > 0"}</span>}
+        {node.type==="slack"     && <span style={{color:"#4ade80"}}>{node.cfg.channel||"#general"}</span>}
+        {node.type==="email"     && <span style={{color:"#fb923c"}}>{node.cfg.to||"recipient@..."}</span>}
+        {node.type==="output"    && <span style={{color:"#f87171"}}>{node.out?node.out.slice(0,42)+"…":"awaiting output…"}</span>}
+      </div>
+      {/* Ports */}
+      {node.type!=="manual"&&node.type!=="webhook"&&node.type!=="scheduler" && (
+        <div className={`port port-in ${connecting?"active":""}`}
+          onClick={e=>{e.stopPropagation();onPortClick("in",node.id);}}
+          title="Connect input"/>
+      )}
+      {node.type!=="output" && (
+        <div className={`port port-out ${connecting?.from===node.id?"active":""}`}
+          onClick={e=>{e.stopPropagation();onPortClick("out",node.id);}}
+          title="Connect output"/>
+      )}
+    </div>
+  );
+}
+
+// ─── Inspector ───────────────────────────────────────────────
+function Inspector({node, onUpdate, onDelete, apiKey, setApiKey}){
+  if(!node) return (
+    <div className="inspector" style={{display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"14px",borderBottom:"1px solid var(--border)"}}>
+        <div style={{fontSize:11,fontWeight:600,color:"var(--text)",marginBottom:10}}>⚙ Settings</div>
+        <div style={{fontSize:9,color:"var(--green)",textTransform:"uppercase",letterSpacing:1.5,marginBottom:5}}>🆓 Groq API Key (Free!)</div>
+        <input type="password" className="field-input" value={apiKey} onChange={e=>{setApiKey(e.target.value);localStorage.setItem("flowai_key",e.target.value);}} placeholder="gsk_xxxxxxxxxxxx"/>
+        <div style={{fontSize:9,color:"var(--green)",marginTop:4}}>✓ Free → console.groq.com → API Keys</div>
+      </div>
+      <div style={{padding:"50px 14px",textAlign:"center"}}>
+        <div style={{fontSize:28,marginBottom:10,opacity:.3}}>◈</div>
+        <div style={{fontSize:12,color:"var(--text3)"}}>Select a node to configure</div>
+      </div>
+    </div>
+  );
+
+  const def = NODE_DEFS[node.type];
+  const set = (k,v) => onUpdate(node.id,{...node.cfg,[k]:v});
+
+  return (
+    <div className="inspector" style={{display:"flex",flexDirection:"column"}}>
+      <div className="insp-header" style={{background:def.color+"12"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:28,height:28,borderRadius:6,background:def.color+"28",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:def.color,fontFamily:"monospace"}}>{def.icon}</div>
+          <div>
+            <div className="insp-title" style={{color:def.color}}>{def.label}</div>
+            <div className="insp-sub">{def.desc}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Common: name */}
+      <div className="field-group">
+        <div className="field-label">Node Name</div>
+        <input className="field-input" value={node.cfg.name||""} onChange={e=>set("name",e.target.value)} placeholder={def.label}/>
+      </div>
+
+      {/* Per-type config */}
+      {node.type==="webhook" && <div className="field-group">
+        <div className="field-label">Path</div>
+        <input className="field-input mono" value={node.cfg.path||""} onChange={e=>set("path",e.target.value)} placeholder="/my-webhook"/>
+        <div style={{fontSize:9,color:"var(--text3)",marginTop:4}}>POST data will be passed as input</div>
+      </div>}
+
+      {node.type==="scheduler" && <div className="field-group">
+        <div className="field-label">Cron Expression</div>
+        <input className="field-input mono" value={node.cfg.cron||""} onChange={e=>set("cron",e.target.value)} placeholder="0 9 * * *"/>
+        <div style={{fontSize:9,color:"var(--text3)",marginTop:4}}>Format: min hour day month weekday</div>
+      </div>}
+
+      {node.type==="ai_agent" && <>
+        <div className="field-group">
+          <div className="field-label">System Prompt</div>
+          <textarea className="field-textarea" value={node.cfg.sys||""} onChange={e=>set("sys",e.target.value)} placeholder="You are a helpful assistant."/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">User Message</div>
+          <textarea className="field-textarea" value={node.cfg.msg||""} onChange={e=>set("msg",e.target.value)} placeholder="{{input}}"/>
+          <div style={{fontSize:9,color:"var(--text3)",marginTop:4}}>Use {"{{input}}"} for previous node output</div>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Model</div>
+          <select className="field-select" value={node.cfg.model||"llama-3.3-70b-versatile"} onChange={e=>set("model",e.target.value)}>
+            <option value="llama-3.3-70b-versatile">Llama 3.3 70B (Best)</option>
+            <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fastest)</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+            <option value="gemma2-9b-it">Gemma 2 9B</option>
+          </select>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Max Tokens</div>
+          <input type="number" className="field-input" value={node.cfg.maxTokens||500} onChange={e=>set("maxTokens",parseInt(e.target.value))} min={100} max={4000}/>
+        </div>
+      </>}
+
+      {node.type==="http" && <>
+        <div className="field-group">
+          <div className="field-label">Method</div>
+          <select className="field-select" value={node.cfg.method||"GET"} onChange={e=>set("method",e.target.value)}>
+            {["GET","POST","PUT","PATCH","DELETE"].map(m=><option key={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="field-group">
+          <div className="field-label">URL</div>
+          <input className="field-input mono" value={node.cfg.url||""} onChange={e=>set("url",e.target.value)} placeholder="https://api.example.com/endpoint"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Headers (JSON)</div>
+          <textarea className="field-textarea" style={{minHeight:60}} value={node.cfg.headers||""} onChange={e=>set("headers",e.target.value)} placeholder={'{"Authorization": "Bearer token"}'}/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Body (JSON, POST only)</div>
+          <textarea className="field-textarea" style={{minHeight:60}} value={node.cfg.body||""} onChange={e=>set("body",e.target.value)} placeholder={"{{input}}"}/>
+        </div>
+      </>}
+
+      {node.type==="code" && <div className="field-group">
+        <div className="field-label">JavaScript Code</div>
+        <textarea className="field-textarea" style={{minHeight:140,fontSize:10}} value={node.cfg.code||""} onChange={e=>set("code",e.target.value)} placeholder={"// 'input' = previous output\n// return your result\nreturn input.toUpperCase();"}/>
+        <div style={{fontSize:9,color:"var(--text3)",marginTop:4}}>Variable: <code style={{color:"var(--accent)"}}>input</code> = previous node output</div>
+      </div>}
+
+      {node.type==="transform" && <div className="field-group">
+        <div className="field-label">Mode</div>
+        {["uppercase","lowercase","trim","reverse","json_parse","json_stringify"].map(m=>(
+          <div key={m} onClick={()=>set("mode",m)} style={{
+            padding:"7px 10px",borderRadius:5,marginBottom:4,cursor:"pointer",
+            background:node.cfg.mode===m?"rgba(91,138,245,.15)":"var(--surface2)",
+            border:`1px solid ${node.cfg.mode===m?"var(--accent)":"var(--border)"}`,
+            color:node.cfg.mode===m?"var(--accent)":"var(--text2)",fontSize:11,fontFamily:"monospace"
+          }}>{m}</div>
+        ))}
+      </div>}
+
+      {node.type==="condition" && <>
+        <div className="field-group">
+          <div className="field-label">Field</div>
+          <input className="field-input mono" value={node.cfg.field||""} onChange={e=>set("field",e.target.value)} placeholder="input.length"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Operator</div>
+          <select className="field-select" value={node.cfg.op||">"} onChange={e=>set("op",e.target.value)}>
+            {[">","<",">=","<=","==","!=","contains","not_contains"].map(o=><option key={o}>{o}</option>)}
+          </select>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Value</div>
+          <input className="field-input mono" value={node.cfg.val||""} onChange={e=>set("val",e.target.value)} placeholder="10"/>
+        </div>
+      </>}
+
+      {node.type==="setfields" && <div className="field-group">
+        <div className="field-label">Fields (key=value, one per line)</div>
+        <textarea className="field-textarea" value={node.cfg.fields||""} onChange={e=>set("fields",e.target.value)} placeholder={"title = My Title\nstatus = active\ndata = {{input}}"}/>
+      </div>}
+
+      {node.type==="filter" && <div className="field-group">
+        <div className="field-label">JS Filter Expression</div>
+        <input className="field-input mono" value={node.cfg.expr||""} onChange={e=>set("expr",e.target.value)} placeholder="input.length > 10"/>
+        <div style={{fontSize:9,color:"var(--text3)",marginTop:4}}>Must return true/false. Variable: <code style={{color:"var(--accent)"}}>input</code></div>
+      </div>}
+
+      {node.type==="slack" && <>
+        <div className="field-group">
+          <div className="field-label">Webhook URL</div>
+          <input className="field-input mono" value={node.cfg.webhookUrl||""} onChange={e=>set("webhookUrl",e.target.value)} placeholder="https://hooks.slack.com/..."/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Channel</div>
+          <input className="field-input" value={node.cfg.channel||""} onChange={e=>set("channel",e.target.value)} placeholder="#general"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Message</div>
+          <textarea className="field-textarea" value={node.cfg.message||""} onChange={e=>set("message",e.target.value)} placeholder="{{input}}"/>
+        </div>
+      </>}
+
+      {node.type==="email" && <>
+        <div className="field-group">
+          <div className="field-label">To</div>
+          <input className="field-input" value={node.cfg.to||""} onChange={e=>set("to",e.target.value)} placeholder="user@example.com"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Subject</div>
+          <input className="field-input" value={node.cfg.subject||""} onChange={e=>set("subject",e.target.value)} placeholder="Workflow notification"/>
+        </div>
+        <div className="field-group">
+          <div className="field-label">Body</div>
+          <textarea className="field-textarea" value={node.cfg.body_email||""} onChange={e=>set("body_email",e.target.value)} placeholder="{{input}}"/>
+          <div style={{fontSize:9,color:"var(--text3)",marginTop:4}}>⚠ Simulated (no real SMTP)</div>
+        </div>
+      </>}
+
+      {/* Output */}
+      {node.out && <div className="field-group">
+        <div className="field-label" style={{color:"var(--green)"}}>Last Output</div>
+        <div className="output-box">{node.out}</div>
+      </div>}
+
+      {/* Delete */}
+      <div style={{padding:"10px 14px",marginTop:"auto"}}>
+        <button onClick={()=>onDelete(node.id)} style={{width:"100%",padding:"8px",background:"rgba(240,84,84,.1)",color:"var(--red)",border:"1px solid rgba(240,84,84,.2)",borderRadius:5,fontSize:12,cursor:"pointer"}}>
+          ⊗ Delete Node
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main App ────────────────────────────────────────────────
+function App(){
+  const [wfName, setWfName] = useState("My Workflow");
+  const [nodes, setNodes]   = useState(DEFAULT_NODES);
+  const [edges, setEdges]   = useState(DEFAULT_EDGES);
+  const [selId, setSelId]   = useState(null);
+  const [connecting, setConnecting] = useState(null); // {from: nodeId}
+  const [running, setRunning]       = useState(false);
+  const [logs, setLogs]             = useState([]);
+  const [logsH, setLogsH]           = useState(180);
+  const [logsOpen, setLogsOpen]     = useState(false);
+  const [apiKey, setApiKey]         = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [execHistory, setExecHistory]     = useState([]);
+  const [showHistory, setShowHistory]     = useState(false);
+  const [zoom, setZoom]     = useState(1);
+  const [pan, setPan]       = useState({x:0,y:0});
+  const dragRef   = useRef(null);
+  const panRef    = useRef(null);
+  const canvasRef = useRef(null);
+
+  const selNode = nodes.find(n=>n.id===selId);
+
+  // Load API key
+  useEffect(()=>{
+    const k = localStorage.getItem("flowai_key");
+    if(k) setApiKey(k);
+  },[]);
+
+  // Drag nodes
+  useEffect(()=>{
+    const move = e=>{
+      if(!dragRef.current) return;
+      const {id,ox,oy} = dragRef.current;
+      const cx = e.touches?e.touches[0].clientX:e.clientX;
+      const cy = e.touches?e.touches[0].clientY:e.clientY;
+      setNodes(p=>p.map(n=>n.id===id?{...n,pos:{x:Math.max(0,(cx-ox)/zoom),y:Math.max(0,(cy-oy)/zoom)}}:n));
+    };
+    const up = ()=>{ dragRef.current=null; };
+    window.addEventListener("mousemove",move);
+    window.addEventListener("mouseup",up);
+    window.addEventListener("touchmove",move,{passive:true});
+    window.addEventListener("touchend",up);
+    return()=>{
+      window.removeEventListener("mousemove",move);
+      window.removeEventListener("mouseup",up);
+      window.removeEventListener("touchmove",move);
+      window.removeEventListener("touchend",up);
+    };
+  },[zoom]);
+
+  // Pan canvas
+  useEffect(()=>{
+    const move = e=>{
+      if(!panRef.current) return;
+      const {ox,oy,px,py} = panRef.current;
+      const cx=e.clientX,cy=e.clientY;
+      setPan({x:px+(cx-ox),y:py+(cy-oy)});
+    };
+    const up = ()=>{ panRef.current=null; };
+    window.addEventListener("mousemove",move);
+    window.addEventListener("mouseup",up);
+    return()=>{ window.removeEventListener("mousemove",move); window.removeEventListener("mouseup",up); };
+  },[]);
+
+  const startDrag = (e,id)=>{
+    const cx=e.touches?e.touches[0].clientX:e.clientX;
+    const cy=e.touches?e.touches[0].clientY:e.clientY;
+    const node=nodes.find(n=>n.id===id);
+    dragRef.current={id,ox:cx-node.pos.x*zoom,oy:cy-node.pos.y*zoom};
+  };
+
+  const startPan = e=>{
+    if(dragRef.current) return;
+    panRef.current={ox:e.clientX,oy:e.clientY,px:pan.x,py:pan.y};
+  };
+
+  const onWheel = e=>{
+    e.preventDefault();
+    setZoom(z=>Math.max(.3,Math.min(2,z-e.deltaY*.001)));
+  };
+
+  const onPortClick = (type,id)=>{
+    if(type==="out"){ setConnecting({from:id}); return; }
+    if(type==="in" && connecting && connecting.from!==id){
+      if(!edges.find(e=>e.src===connecting.from&&e.tgt===id))
+        setEdges(p=>[...p,{id:`e${newId()}`,src:connecting.from,tgt:id}]);
+      setConnecting(null);
+    }
+  };
+
+  const addNode = type=>{
+    const id=newId();
+    const base={sys:undefined,msg:"{{input}}",code:"return input;",mode:"uppercase",method:"GET",cron:"0 * * * *"};
+    const cfg = type==="ai_agent"?{sys:"You are a helpful assistant.",msg:"{{input}}"}
+               :type==="http"?{method:"GET",url:""}
+               :type==="code"?{code:"return input;"}
+               :type==="transform"?{mode:"uppercase"}
+               :type==="condition"?{field:"input",op:">",val:"0"}
+               :{};
+    setNodes(p=>[...p,{id,type,pos:{x:200+Math.random()*300,y:100+Math.random()*200},cfg,out:null,st:null}]);
+    setSelId(id);
+  };
+
+  const updateNode = (id,cfg)=>setNodes(p=>p.map(n=>n.id===id?{...n,cfg}:n));
+  const deleteNode = id=>{
+    setNodes(p=>p.filter(n=>n.id!==id));
+    setEdges(p=>p.filter(e=>e.src!==id&&e.tgt!==id));
+    setSelId(null);
+  };
+  const deleteEdge = id=>setEdges(p=>p.filter(e=>e.id!==id));
+
+  const addLog=(msg,type="info")=>setLogs(p=>[...p,{msg,type,t:new Date().toLocaleTimeString()}]);
+
+  // ─── Execution Engine ──────────────────────────────────────
+  const runWorkflow = async()=>{
+    if(!apiKey){ alert("Groq API Key dao!\n\nFree key pete: console.groq.com → API Keys → Create Key\n\nKey pele Inspector panel e (kono node select na kore) diye dao."); return; }
+    setRunning(true); setLogs([]); setLogsOpen(true);
+    setNodes(p=>p.map(n=>({...n,st:null,out:null})));
+    const snap=[...nodes];
+    const trigger=snap.find(n=>["manual","webhook","scheduler"].includes(n.type));
+    if(!trigger){ addLog("❌ No trigger node found!","err"); setRunning(false); return; }
+
+    // BFS order
+    const order=[],seen=new Set(),q=[trigger.id];
+    while(q.length){
+      const id=q.shift(); if(seen.has(id))continue;
+      seen.add(id); order.push(id);
+      edges.filter(e=>e.src===id).forEach(e=>q.push(e.tgt));
+    }
+
+    addLog(`▶ Executing ${order.length} nodes in ${wfName}`);
+    const outs={};
+    const startTime=Date.now();
+
+    for(const nid of order){
+      const node=snap.find(n=>n.id===nid); if(!node) continue;
+      setNodes(p=>p.map(n=>n.id===nid?{...n,st:"run"}:n));
+      const def=NODE_DEFS[node.type];
+      addLog(`⟶ [${def.label}] ${node.cfg.name||""}`);
+      const prev=edges.filter(e=>e.tgt===nid).map(e=>outs[e.src]||"").join("\n");
+      let result="";
+      try{
+        if(node.type==="manual"||node.type==="webhook"||node.type==="scheduler"){
+          result="Workflow triggered";
+          addLog(`  ✓ Triggered`,  "ok");
+        }
+        else if(node.type==="ai_agent"){
+          const model=node.cfg.model||"llama-3.3-70b-versatile";
+          addLog(`  → Calling Groq (${model})…`);
+          const userMsg=(node.cfg.msg||"{{input}}").replace(/\{\{input\}\}/g,prev);
+          const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+            method:"POST",
+            headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+            body:JSON.stringify({model,max_tokens:node.cfg.maxTokens||500,messages:[{role:"system",content:node.cfg.sys||"You are helpful."},{role:"user",content:userMsg}]}),
+          });
+          const data=await res.json();
+          if(data.error) throw new Error(data.error.message);
+          result=data.choices?.[0]?.message?.content||"(no response)";
+          addLog(`  ✓ Groq responded (${result.length} chars)`,"ok");
+        }
+        else if(node.type==="http"){
+          addLog(`  → ${node.cfg.method||"GET"} ${node.cfg.url||"?"}`);
+          const headers=node.cfg.headers?JSON.parse(node.cfg.headers):{"Content-Type":"application/json"};
+          const opts={method:node.cfg.method||"GET",headers};
+          if(node.cfg.body&&node.cfg.method!=="GET") opts.body=node.cfg.body.replace(/\{\{input\}\}/g,prev);
+          const res=await fetch(node.cfg.url,opts);
+          const text=await res.text();
+          result=text; addLog(`  ✓ HTTP ${res.status}`,"ok");
+        }
+        else if(node.type==="code"){
+          const fn=new Function("input",node.cfg.code||"return input;");
+          result=String(fn(prev));
+          addLog(`  ✓ Code executed`,"ok");
+        }
+        else if(node.type==="transform"){
+          const m=node.cfg.mode||"uppercase";
+          if(m==="uppercase") result=prev.toUpperCase();
+          else if(m==="lowercase") result=prev.toLowerCase();
+          else if(m==="trim") result=prev.trim();
+          else if(m==="reverse") result=prev.split("").reverse().join("");
+          else if(m==="json_parse"){ try{result=JSON.stringify(JSON.parse(prev),null,2);}catch{result=prev;} }
+          else if(m==="json_stringify") result=JSON.stringify(prev);
+          addLog(`  ✓ Transform: ${m}`,"ok");
+        }
+        else if(node.type==="condition"){
+          let check=false;
+          try{
+            const val=eval(`(function(input){return ${node.cfg.field||"input"};})(${JSON.stringify(prev)})`);
+            const cmpVal=node.cfg.val||"0";
+            if(node.cfg.op===">") check=val>parseFloat(cmpVal);
+            else if(node.cfg.op==="<") check=val<parseFloat(cmpVal);
+            else if(node.cfg.op===">=") check=val>=parseFloat(cmpVal);
+            else if(node.cfg.op==="<=") check=val<=parseFloat(cmpVal);
+            else if(node.cfg.op==="==") check=String(val)===cmpVal;
+            else if(node.cfg.op==="!=") check=String(val)!==cmpVal;
+            else if(node.cfg.op==="contains") check=String(val).includes(cmpVal);
+            else if(node.cfg.op==="not_contains") check=!String(val).includes(cmpVal);
+          }catch{}
+          result=check?prev:"__SKIP__";
+          addLog(`  ${check?"✓ PASS":"✗ FAIL"}: condition ${check?"met":"not met"}`,check?"ok":"warn");
+        }
+        else if(node.type==="setfields"){
+          const lines=(node.cfg.fields||"").split("\n");
+          const obj={input:prev};
+          lines.forEach(l=>{const [k,...v]=l.split("=");if(k)obj[k.trim()]=v.join("=").trim().replace(/\{\{input\}\}/g,prev);});
+          result=JSON.stringify(obj,null,2);
+          addLog(`  ✓ Fields set`,"ok");
+        }
+        else if(node.type==="filter"){
+          try{
+            const fn=new Function("input",`return !!(${node.cfg.expr||"true"});`);
+            const pass=fn(prev);
+            result=pass?prev:"__SKIP__";
+            addLog(`  ${pass?"✓ Passed":"✗ Filtered out"}`,"ok");
+          }catch{ result=prev; }
+        }
+        else if(node.type==="slack"){
+          const msg=(node.cfg.message||"{{input}}").replace(/\{\{input\}\}/g,prev);
+          if(node.cfg.webhookUrl){
+            await fetch(node.cfg.webhookUrl,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:msg,channel:node.cfg.channel||"#general"})});
+          }
+          result=`Slack message sent to ${node.cfg.channel||"#general"}: ${msg}`;
+          addLog(`  ✓ Slack message sent`,"ok");
+        }
+        else if(node.type==="email"){
+          result=`[Simulated] Email sent to ${node.cfg.to||"?"}\nSubject: ${node.cfg.subject||"?"}\nBody: ${(node.cfg.body_email||"{{input}}").replace(/\{\{input\}\}/g,prev)}`;
+          addLog(`  ✓ Email simulated (no SMTP configured)`,"warn");
+        }
+        else if(node.type==="output"){
+          result=prev||"(empty)";
+          addLog(`  ✓ Output captured`,"ok");
+        }
+
+        if(result==="__SKIP__"){ addLog(`  ↷ Node skipped`,"warn"); outs[nid]=""; setNodes(p=>p.map(n=>n.id===nid?{...n,st:"done",out:"(skipped)"}:n)); continue; }
+        outs[nid]=result;
+        setNodes(p=>p.map(n=>n.id===nid?{...n,st:"done",out:result}:n));
+        await new Promise(r=>setTimeout(r,300));
+      }catch(err){
+        addLog(`  ✕ Error: ${err.message}`,"err");
+        setNodes(p=>p.map(n=>n.id===nid?{...n,st:"err"}:n));
+        outs[nid]="";
+      }
+    }
+    const elapsed=((Date.now()-startTime)/1000).toFixed(2);
+    addLog(`✅ Workflow complete in ${elapsed}s`,"ok");
+    setExecHistory(p=>[{id:newId(),name:wfName,time:new Date().toLocaleTimeString(),elapsed,status:"success"},...p.slice(0,19)]);
+    setRunning(false);
+  };
+
+  // Load template
+  const loadTemplate = t=>{
+    setNodes(t.nodes.map(n=>({...n,id:newId()+"_"+n.id})));
+    // remap edges
+    const idMap={};
+    t.nodes.forEach(n=>{idMap[n.id]=nodes.find(x=>x)?.id||n.id;}); // simple load
+    setNodes(t.nodes);
+    setEdges(t.edges);
+    setWfName(t.name);
+    setShowTemplates(false);
+  };
+
+  // Edge coords
+  const getEdgeCoords = edge=>{
+    const s=nodes.find(n=>n.id===edge.src),t=nodes.find(n=>n.id===edge.tgt);
+    if(!s||!t)return null;
+    return {x1:s.pos.x*zoom+200*zoom,y1:s.pos.y*zoom+44*zoom,x2:t.pos.x*zoom,y2:t.pos.y*zoom+44*zoom};
+  };
+
+  return (
+    <div className="app">
+      {/* TOP BAR */}
+      <div className="topbar">
+        <span className="logo">FLOWAI</span>
+        <div style={{width:1,height:20,background:"var(--border)",margin:"0 4px"}}/>
+        <input className="wf-name" value={wfName} onChange={e=>setWfName(e.target.value)}/>
+        <div style={{flex:1}}/>
+        <button className="btn btn-ghost" onClick={()=>setShowHistory(!showHistory)} style={{fontSize:11}}>
+          ⟳ History {execHistory.length>0&&`(${execHistory.length})`}
+        </button>
+        <button className="btn btn-ghost" onClick={()=>setShowTemplates(true)} style={{fontSize:11}}>
+          ◧ Templates
+        </button>
+        <button className="btn btn-ghost" onClick={()=>setLogsOpen(!logsOpen)} style={{fontSize:11}}>
+          ▤ Logs {logs.length>0&&`(${logs.length})`}
+        </button>
+        <button className="btn btn-primary" onClick={runWorkflow} disabled={running} style={{minWidth:90}}>
+          {running?<span style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{display:"inline-block",width:10,height:10,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",animation:"spin .7s linear infinite"}}/>Running
+          </span>:"▶  Run"}
+        </button>
+      </div>
+
+      {/* LEFT SIDEBAR — Node Palette */}
+      <div className="sidebar">
+        {CATEGORIES.map(cat=>(
+          <div key={cat.key}>
+            <div className="sidebar-title">{cat.label}</div>
+            {Object.entries(NODE_DEFS).filter(([,v])=>v.cat===cat.key).map(([type,def])=>(
+              <div key={type} className="node-item" draggable onDragStart={e=>e.dataTransfer.setData("nodeType",type)} onClick={()=>addNode(type)}>
+                <div className="node-icon" style={{background:def.color+"22",color:def.color}}>{def.icon}</div>
+                <div className="node-info">
+                  <div className="node-label">{def.label}</div>
+                  <div className="node-sub">{def.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+        <div style={{height:20}}/>
+      </div>
+
+      {/* CANVAS */}
+      <div className="canvas-wrap" ref={canvasRef}
+        onMouseDown={startPan}
+        onWheel={onWheel}
+        onClick={()=>{setSelId(null);setConnecting(null);}}
+        onDragOver={e=>e.preventDefault()}
+        onDrop={e=>{
+          e.preventDefault();
+          const type=e.dataTransfer.getData("nodeType");
+          if(!type) return;
+          const rect=canvasRef.current.getBoundingClientRect();
+          const id=newId();
+          const cfg=type==="ai_agent"?{sys:"You are a helpful assistant.",msg:"{{input}}"}:type==="http"?{method:"GET",url:""}:type==="code"?{code:"return input;"}:type==="transform"?{mode:"uppercase"}:type==="condition"?{field:"input",op:">",val:"0"}:{};
+          setNodes(p=>[...p,{id,type,pos:{x:(e.clientX-rect.left-pan.x)/zoom-100,y:(e.clientY-rect.top-pan.y)/zoom-30},cfg,out:null,st:null}]);
+          setSelId(id);
+        }}
+      >
+        {/* Grid dots */}
+        <svg style={{position:"absolute",inset:0,width:"100%",height:"100%",pointerEvents:"none"}}>
+          <defs>
+            <pattern id="grid" width={20*zoom} height={20*zoom} patternUnits="userSpaceOnUse" x={pan.x%( 20*zoom)} y={pan.y%(20*zoom)}>
+              <circle cx="1" cy="1" r="1" fill="#1e1e24" opacity=".8"/>
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)"/>
+        </svg>
+
+        {/* Transform wrapper */}
+        <div style={{position:"absolute",left:pan.x,top:pan.y,transformOrigin:"0 0",transform:`scale(${zoom})`}}>
+          {/* Edge SVG */}
+          <svg style={{position:"absolute",left:0,top:0,width:9999,height:9999,pointerEvents:"none",overflow:"visible"}}>
+            <defs>
+              <marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <polygon points="0 0, 6 3, 0 6" fill="#2a2a32"/>
+              </marker>
+            </defs>
+            {edges.map(edge=>{
+              const s=nodes.find(n=>n.id===edge.src),t=nodes.find(n=>n.id===edge.tgt);
+              if(!s||!t)return null;
+              const x1=s.pos.x+200,y1=s.pos.y+44,x2=t.pos.x,y2=t.pos.y+44;
+              const def=NODE_DEFS[s.type];
+              return(
+                <g key={edge.id} onClick={e=>{e.stopPropagation();deleteEdge(edge.id);}}>
+                  <path d={bezier(x1,y1,x2,y2)} stroke="transparent" strokeWidth={12} fill="none" style={{cursor:"pointer"}}/>
+                  <path d={bezier(x1,y1,x2,y2)} stroke="#1c1c24" strokeWidth={4} fill="none"/>
+                  <path d={bezier(x1,y1,x2,y2)} stroke={def.color} strokeWidth={1.5} fill="none" opacity={.6} markerEnd="url(#arr)"
+                    strokeDasharray={s.st==="run"?"8 4":"none"} style={{transition:".3s"}}/>
+                </g>
+              );
+            })}
+          </svg>
+
+          {/* Nodes */}
+          {nodes.map(node=>(
+            <NodeCard key={node.id} node={node} selected={selId===node.id}
+              connecting={connecting} onDragStart={startDrag}
+              onPortClick={onPortClick} onSelect={setSelId}/>
+          ))}
+        </div>
+
+        {/* Zoom controls */}
+        <div style={{position:"absolute",bottom:logsOpen?logsH+10:14,right:14,display:"flex",flexDirection:"column",gap:4}}>
+          <button onClick={()=>setZoom(z=>Math.min(2,z+.1))} style={{width:28,height:28,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:5,color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+          <button onClick={()=>setZoom(1)} style={{width:28,height:28,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:5,color:"var(--text2)",fontSize:9,fontFamily:"monospace"}}>{Math.round(zoom*100)}%</button>
+          <button onClick={()=>setZoom(z=>Math.max(.3,z-.1))} style={{width:28,height:28,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:5,color:"var(--text)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+        </div>
+
+        {/* Connecting hint */}
+        {connecting && (
+          <div style={{position:"absolute",top:12,left:"50%",transform:"translateX(-50%)",background:"var(--surface)",border:"1px solid var(--accent)",borderRadius:6,padding:"5px 14px",fontSize:11,color:"var(--accent)",pointerEvents:"none",zIndex:99}}>
+            Click an input port (●) to connect · <span style={{opacity:.6}}>ESC to cancel</span>
+          </div>
+        )}
+
+        {/* LOGS PANEL */}
+        {logsOpen && (
+          <div className="logs-bar" style={{height:logsH}}>
+            <div style={{display:"flex",alignItems:"center",padding:"6px 14px",borderBottom:"1px solid var(--border)",gap:8}}>
+              <span style={{fontSize:10,fontWeight:600,color:"var(--text2)",letterSpacing:1.5,textTransform:"uppercase"}}>Execution Logs</span>
+              <div style={{flex:1}}/>
+              <button onClick={()=>setLogs([])} style={{background:"transparent",color:"var(--text3)",fontSize:10,border:"none",cursor:"pointer"}}>Clear</button>
+              <button onClick={()=>setLogsOpen(false)} style={{background:"transparent",color:"var(--text3)",fontSize:14,border:"none",cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{overflowY:"auto",height:logsH-36,padding:"4px 0"}}>
+              {logs.length===0
+                ? <div style={{padding:"20px 14px",color:"var(--text3)",fontSize:11}}>No logs yet — run the workflow to see execution logs.</div>
+                : logs.map((l,i)=>(
+                    <div key={i} className="log-row" style={{color:l.type==="err"?"#f05454":l.type==="ok"?"#3ecf8e":l.type==="warn"?"#f5a623":"var(--text2)"}}>
+                      <span className="log-time">{l.t}</span>
+                      <span>{l.msg}</span>
+                    </div>
+                  ))
+              }
+            </div>
+          </div>
+        )}
+
+        {/* EXEC HISTORY */}
+        {showHistory && (
+          <div style={{position:"absolute",top:10,right:10,width:260,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,zIndex:200,overflow:"hidden",boxShadow:"0 8px 32px #00000088"}}>
+            <div style={{padding:"10px 12px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:11,fontWeight:600}}>Execution History</span>
+              <button onClick={()=>setShowHistory(false)} style={{background:"transparent",color:"var(--text3)",border:"none",fontSize:14,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{maxHeight:280,overflowY:"auto",padding:"6px"}}>
+              {execHistory.length===0
+                ? <div style={{padding:"20px",color:"var(--text3)",fontSize:11,textAlign:"center"}}>No executions yet</div>
+                : execHistory.map(ex=>(
+                    <div key={ex.id} className="exec-row">
+                      <div style={{width:6,height:6,borderRadius:"50%",background:ex.status==="success"?"var(--green)":"var(--red)",flexShrink:0}}/>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:11,color:"var(--text)"}}>{ex.name}</div>
+                        <div style={{fontSize:9,color:"var(--text3)"}}>{ex.time} · {ex.elapsed}s</div>
+                      </div>
+                    </div>
+                  ))
+              }
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* RIGHT INSPECTOR */}
+      <Inspector node={selNode} onUpdate={updateNode} onDelete={deleteNode} apiKey={apiKey} setApiKey={k=>{setApiKey(k);localStorage.setItem("flowai_key",k);}}/>
+
+      {/* TEMPLATES MODAL */}
+      {showTemplates && (
+        <div className="modal-bg" onClick={()=>setShowTemplates(false)}>
+          <div className="modal" onClick={e=>e.stopPropagation()}>
+            <div className="modal-title">◧ Workflow Templates</div>
+            <div className="modal-sub">Start with a pre-built workflow. You can edit all nodes after loading.</div>
+            {TEMPLATES.map(t=>(
+              <div key={t.id} className="tmpl-card" onClick={()=>loadTemplate(t)}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:20}}>{t.icon}</span>
+                  <div>
+                    <div className="tmpl-title">{t.name}</div>
+                    <div className="tmpl-desc">{t.desc}</div>
+                  </div>
+                  <button style={{marginLeft:"auto",background:"rgba(91,138,245,.15)",color:"var(--accent)",border:"1px solid rgba(91,138,245,.3)",borderRadius:5,padding:"4px 10px",fontSize:11,cursor:"pointer"}}>Load</button>
+                </div>
+              </div>
+            ))}
+            <button onClick={()=>setShowTemplates(false)} style={{width:"100%",marginTop:8,padding:"8px",background:"var(--surface2)",border:"1px solid var(--border)",borderRadius:5,color:"var(--text2)",fontSize:12,cursor:"pointer"}}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
