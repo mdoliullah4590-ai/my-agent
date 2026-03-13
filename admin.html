@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<title>FlowAI — Admin Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+
+<!-- ══ FIREBASE CONFIG — index.html এর মতো একই config দাও ══ -->
+<script>
+window.FB_CFG = {
+  apiKey:            "AIzaSyCMe1LYyahwVueXntTkhBzaSDWnt3LaYEs",
+  authDomain:        "flow-ai-70221.firebaseapp.com",
+  projectId:         "flow-ai-70221",
+  storageBucket:     "flow-ai-70221.firebasestorage.app",
+  messagingSenderId: "400252374439",
+  appId:             "1:400252374439:web:3f0a9e72189db968e03a82"
+};
+// Admin হিসেবে কোন emails থাকবে — এখানে তোমার email দাও
+window.ADMIN_EMAILS = ["mdyasinoliullah456@gmail.com"];
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --bg:#05050f;--s1:#0a0a18;--s2:#0f0f20;--s3:#141428;
+  --b1:#1a1a2e;--b2:#22223a;--b3:#2e2e4a;
+  --t1:#e8e8f5;--t2:#8080a8;--t3:#404060;
+  --pu:#a78bfa;--pu2:#7c3aed;--rd:#ef4444;--gn:#10b981;--yw:#f59e0b;--cy:#22d3ee;--ac:#6366f1;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body,#root{height:100%;overflow:hidden;}
+body{background:var(--bg);color:var(--t1);font-family:'IBM Plex Sans',sans-serif;height:100dvh;}
+#root{display:flex;flex-direction:column;height:100dvh;}
+button,input,select,textarea{font-family:'IBM Plex Sans',sans-serif;outline:none;border:none;color:inherit;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:var(--b2);}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* ══ LOGIN SCREEN ══ */
+.login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-card{background:var(--s2);border:1.5px solid rgba(139,92,246,.3);border-radius:18px;width:100%;max-width:360px;overflow:hidden;animation:pop .3s;box-shadow:0 0 60px rgba(124,58,237,.08);}
+.login-head{background:linear-gradient(135deg,rgba(124,58,237,.25),rgba(99,102,241,.1));padding:28px 24px 22px;text-align:center;border-bottom:1px solid rgba(139,92,246,.2);}
+.login-logo{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:700;color:var(--pu);letter-spacing:3px;margin-bottom:4px;}
+.login-sub{font-size:11px;color:var(--t2);}
+.login-badge{display:inline-block;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:9px;font-weight:700;padding:2px 10px;border-radius:10px;letter-spacing:1px;margin-top:6px;}
+.login-body{padding:22px;}
+.ainp{width:100%;background:var(--s3);border:1.5px solid var(--b2);border-radius:9px;color:var(--t1);padding:12px 14px;font-size:13px;margin-bottom:10px;transition:.15s;display:block;}
+.ainp:focus{border-color:var(--pu);background:#12122a;}
+.ainp::placeholder{color:var(--t3);}
+.login-btn{width:100%;padding:13px;background:linear-gradient(135deg,var(--pu2),#6366f1);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:4px;}
+.login-btn:active{transform:scale(.97);}
+.login-btn:disabled{background:var(--b2);color:var(--t3);cursor:not-allowed;transform:none;}
+.aerr{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:10px 12px;font-size:11px;color:#f87171;margin-bottom:12px;line-height:1.6;}
+
+/* ══ TOPBAR ══ */
+.topbar{background:linear-gradient(135deg,#0c0820,var(--s1));border-bottom:1px solid rgba(139,92,246,.25);height:54px;display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;position:relative;}
+.logo{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;color:var(--pu);letter-spacing:2px;}
+.admin-pill{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;letter-spacing:.5px;}
+.logout-btn{padding:6px 12px;background:rgba(239,68,68,.1);color:#f87171;border:1px solid rgba(239,68,68,.2);border-radius:7px;font-size:11px;cursor:pointer;transition:.12s;}
+.logout-btn:active{transform:scale(.95);}
+
+/* ══ TABS ══ */
+.tabs{display:flex;background:var(--s1);border-bottom:1px solid rgba(139,92,246,.15);flex-shrink:0;}
+.tab{flex:1;padding:11px 0;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--t3);font-size:10px;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;font-weight:600;transition:.12s;}
+.tab.on{color:var(--pu);border-bottom-color:var(--pu);}
+.badge{background:var(--pu2);color:#fff;font-size:8px;padding:1px 5px;border-radius:8px;margin-left:3px;}
+
+/* ══ BODY ══ */
+.body{flex:1;overflow-y:auto;padding:14px;}
+
+/* ══ STATS ══ */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;}
+.stat-card{background:var(--s2);border:1px solid var(--b2);border-radius:13px;padding:16px;position:relative;overflow:hidden;}
+.stat-card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,var(--glow,rgba(167,139,250,.04)),transparent);}
+.stat-n{font-size:28px;font-weight:700;line-height:1;margin-bottom:4px;}
+.stat-l{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:.8px;}
+.stat-change{font-size:10px;margin-top:4px;}
+
+/* ══ TABLE / LIST ══ */
+.section{background:var(--s2);border:1px solid var(--b1);border-radius:13px;overflow:hidden;margin-bottom:12px;}
+.section-head{padding:12px 14px;border-bottom:1px solid var(--b1);display:flex;align-items:center;gap:8px;background:var(--s3);}
+.section-title{font-size:12px;font-weight:700;color:var(--pu);flex:1;}
+.search-box{width:100%;background:var(--s3);border:1px solid var(--b2);border-radius:9px;color:var(--t1);padding:9px 13px;font-size:12px;margin-bottom:10px;transition:.15s;}
+.search-box:focus{border-color:var(--pu);}
+
+/* ══ USER CARD ══ */
+.ucard{padding:12px 14px;border-bottom:1px solid var(--b1);animation:pop .15s;transition:.1s;}
+.ucard:last-child{border-bottom:none;}
+.ucard-row{display:flex;align-items:center;gap:10px;}
+.av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;}
+.tag{font-size:9px;padding:2px 7px;border-radius:8px;font-weight:700;}
+.act-btn{padding:5px 11px;border-radius:6px;font-size:10px;cursor:pointer;border:1px solid;font-weight:600;transition:.1s;}
+.act-btn:active{transform:scale(.92);}
+.expand-btn{background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;padding:2px 6px;border-radius:4px;transition:.1s;}
+.expand-btn:hover{color:var(--t1);}
+
+/* ══ WORKFLOW ROW ══ */
+.wf-row{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:7px;margin-bottom:4px;}
+
+/* ══ CHART BAR ══ */
+.bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.bar-track{flex:1;background:var(--b1);border-radius:4px;height:6px;overflow:hidden;}
+.bar-fill{height:100%;border-radius:4px;transition:width .6s ease;}
+
+/* ══ TOAST ══ */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--s2);border:1px solid var(--b2);border-radius:9px;padding:9px 16px;font-size:12px;z-index:999;animation:pop .2s;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:none;}
+
+/* ══ MODAL ══ */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:500;display:flex;align-items:flex-end;animation:fade .12s;}
+.modal{background:var(--s1);border:1px solid var(--b2);border-radius:16px 16px 0 0;width:100%;max-height:85dvh;overflow-y:auto;}
+.modal-handle{width:36px;height:3px;background:var(--b2);border-radius:2px;margin:12px auto 12px;}
+.modal-title{font-size:14px;font-weight:700;padding:0 16px 12px;border-bottom:1px solid var(--b1);margin-bottom:12px;}
+.modal-body{padding:0 16px 24px;}
+
+/* ══ EMPTY STATE ══ */
+.empty{text-align:center;padding:40px 20px;color:var(--t3);font-size:12px;}
+</style>
+</head>
+<body><div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const {useState,useEffect,useCallback,useRef}=React;
+
+// ════════════════════════════
+// FIREBASE INIT
+// ════════════════════════════
+let db=null,fbAuth=null,FB=false;
+try{
+  if(window.firebase&&window.FB_CFG?.apiKey!=="YOUR_API_KEY"){
+    firebase.initializeApp(window.FB_CFG);
+    fbAuth=firebase.auth();
+    db=firebase.firestore();
+    FB=true;
+  }
+}catch(e){console.warn("Firebase:",e);}
+
+const isAdmin=email=>(window.ADMIN_EMAILS||[]).includes(email);
+const TS=()=>FB?firebase.firestore.FieldValue.serverTimestamp():new Date().toISOString();
+
+// ════════════════════════════
+// FIREBASE HELPERS
+// ════════════════════════════
+async function getAllUsers(){
+  if(!db)return[];
+  try{
+    const s=await db.collection("users").orderBy("createdAt","desc").get();
+    return s.docs.map(d=>({...d.data(),uid:d.id}));
+  }catch(e){
+    // If no index, fallback without order
+    try{const s=await db.collection("users").get();return s.docs.map(d=>({...d.data(),uid:d.id}));}
+    catch{return[];}
+  }
+}
+async function getUserWFs(uid){
+  if(!db)return[];
+  try{const s=await db.collection("users").doc(uid).collection("workflows").get();return s.docs.map(d=>({...d.data(),id:d.id}));}
+  catch{return[];}
+}
+async function banUser(uid,banned){
+  if(!db)return;
+  try{await db.collection("users").doc(uid).set({banned,bannedAt:banned?TS():null},{merge:true});}catch(e){throw e;}
+}
+async function deleteUser(uid){
+  if(!db)return;
+  // Delete all workflows first
+  try{
+    const wfs=await db.collection("users").doc(uid).collection("workflows").get();
+    const batch=db.batch();
+    wfs.docs.forEach(d=>batch.delete(d.ref));
+    await batch.commit();
+    await db.collection("users").doc(uid).delete();
+  }catch(e){throw e;}
+}
+async function deleteWF(uid,wfId){
+  if(!db)return;
+  try{await db.collection("users").doc(uid).collection("workflows").doc(wfId).delete();}catch(e){throw e;}
+}
+async function getStats(){
+  if(!db)return{total:0,today:0,banned:0,wfTotal:0};
+  try{
+    const users=await getAllUsers();
+    const today=new Date().toDateString();
+    const todayCount=users.filter(u=>{
+      const d=u.createdAt?.toDate?.();
+      return d&&d.toDateString()===today;
+    }).length;
+    // Get total workflows
+    let wfTotal=0;
+    for(const u of users.slice(0,20)){
+      try{const s=await db.collection("users").doc(u.uid).collection("workflows").get();wfTotal+=s.size;}catch{}
+    }
+    return{total:users.length,today:todayCount,banned:users.filter(u=>u.banned).length,wfTotal};
+  }catch{return{total:0,today:0,banned:0,wfTotal:0};}
+}
+
+// ════════════════════════════
+// LOGIN COMPONENT
+// ════════════════════════════
+function Login({onLogin}){
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [err,setErr]=useState("");
+
+  const submit=async()=>{
+    setErr("");
+    if(!email.trim()||!pass){setErr("Email এবং Password দাও");return;}
+    setLoading(true);
+    try{
+      if(!FB)throw new Error("Firebase config দাও। admin.html এ FB_CFG বসাও।");
+      const r=await fbAuth.signInWithEmailAndPassword(email.trim(),pass);
+      if(!isAdmin(r.user.email)){
+        await fbAuth.signOut();
+        throw new Error("এই account এ Admin access নেই। ADMIN_EMAILS এ email add করো।");
+      }
+      onLogin(r.user);
+    }catch(e){
+      const m=e.message||"";
+      if(m.includes("wrong-password")||m.includes("invalid-credential"))setErr("Email বা Password ভুল।");
+      else if(m.includes("user-not-found"))setErr("কোনো account নেই।");
+      else setErr(m.split("Firebase:").pop().trim());
+    }finally{setLoading(false);}
+  };
+
+  return(
+    <div className="login-screen">
+      <div className="login-card">
+        <div className="login-head">
+          <div className="login-logo">FLOWAI</div>
+          <div className="login-sub">Workflow Builder Platform</div>
+          <div className="login-badge">ADMIN PANEL</div>
+        </div>
+        <div className="login-body">
+          {!FB&&<div className="aerr">⚠ Firebase config দাও! <code>admin.html</code> এর উপরে <code>FB_CFG</code> এ তোমার project details বসাও।</div>}
+          {err&&<div className="aerr">⚠ {err}</div>}
+          <input className="ainp" type="email" placeholder="Admin email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoComplete="email"/>
+          <input className="ainp" type="password" placeholder="Password" value={pass} onChange={e=>setPass(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} autoComplete="current-password"/>
+          <button className="login-btn" onClick={submit} disabled={loading||!FB}>
+            {loading
+              ?<><span style={{width:14,height:14,border:"2px solid #fff",borderTopColor:"transparent",borderRadius:"50%",display:"inline-block",animation:"spin .6s linear infinite"}}/> Logging in…</>
+              :"🔐 Admin Login"
+            }
+          </button>
+          <div style={{textAlign:"center",marginTop:12,fontSize:10,color:"var(--t3)"}}>
+            User panel: <a href="index.html" style={{color:"var(--pu)"}}>index.html →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════
+// DASHBOARD TAB
+// ════════════════════════════
+function Dashboard({stats,loading,users}){
+  // Simple signup chart - last 7 days
+  const days=Array.from({length:7},(_,i)=>{
+    const d=new Date();d.setDate(d.getDate()-i);
+    return d.toDateString();
+  }).reverse();
+
+  const dayCounts=days.map(day=>({
+    label:new Date(day).toLocaleDateString("en",{weekday:"short"}),
+    count:users.filter(u=>{
+      const d=u.createdAt?.toDate?.();
+      return d&&d.toDateString()===day;
+    }).length
+  }));
+  const maxCount=Math.max(...dayCounts.map(d=>d.count),1);
+
+  return(<>
+    {/* Stats grid */}
+    <div className="stat-grid">
+      {[
+        {n:stats.total,   l:"Total Users",      c:"var(--pu)", glow:"rgba(167,139,250,.06)", icon:"👥"},
+        {n:stats.today,   l:"Today's Signups",  c:"var(--gn)", glow:"rgba(16,185,129,.05)",  icon:"✨"},
+        {n:stats.wfTotal, l:"Total Workflows",  c:"var(--cy)", glow:"rgba(34,211,238,.05)",  icon:"◈"},
+        {n:stats.banned,  l:"Banned",           c:"var(--rd)", glow:"rgba(239,68,68,.05)",   icon:"🚫"},
+      ].map(s=>(
+        <div key={s.l} className="stat-card" style={{"--glow":s.glow}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <span style={{fontSize:18}}>{s.icon}</span>
+          </div>
+          <div className="stat-n" style={{color:s.c}}>{loading?"…":s.n}</div>
+          <div className="stat-l">{s.l}</div>
+        </div>
+      ))}
+    </div>
+
+    {/* Signup chart */}
+    <div className="section" style={{marginBottom:12}}>
+      <div className="section-head">
+        <span className="section-title">📈 Last 7 Days — Signups</span>
+      </div>
+      <div style={{padding:"14px"}}>
+        {dayCounts.map(({label,count})=>(
+          <div key={label} className="bar-row">
+            <div style={{fontSize:10,color:"var(--t3)",width:32,flexShrink:0}}>{label}</div>
+            <div className="bar-track">
+              <div className="bar-fill" style={{width:`${(count/maxCount)*100}%`,background:"linear-gradient(90deg,var(--pu2),var(--pu))"}}/>
+            </div>
+            <div style={{fontSize:10,color:"var(--t2)",width:16,textAlign:"right",flexShrink:0}}>{count}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+
+    {/* Recent users */}
+    <div className="section">
+      <div className="section-head">
+        <span className="section-title">👥 Recent Users</span>
+        <span style={{fontSize:10,color:"var(--t3)"}}>{users.length} total</span>
+      </div>
+      {loading
+        ?<div className="empty">Loading…</div>
+        :users.slice(0,6).map(u=>(
+          <div key={u.uid} className="ucard-row" style={{padding:"10px 14px",borderBottom:"1px solid var(--b1)"}}>
+            <div className="av" style={{background:`linear-gradient(135deg,hsl(${(u.email||"").charCodeAt(0)*7%360},60%,40%),hsl(${(u.email||"").charCodeAt(1)*11%360},70%,35%))`,width:30,height:30,fontSize:12}}>{(u.name||u.email||"?")[0].toUpperCase()}</div>
+            <div style={{flex:1,minWidth:0,marginLeft:8}}>
+              <div style={{fontSize:11,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{u.name||"—"}</div>
+              <div style={{fontSize:10,color:"var(--t3)"}}>{u.email}</div>
+            </div>
+            {u.banned&&<span className="tag" style={{background:"rgba(239,68,68,.12)",color:"#f87171",border:"1px solid rgba(239,68,68,.2)"}}>BANNED</span>}
+            <span style={{fontSize:10,color:"var(--t3)",marginLeft:6}}>{u.createdAt?.toDate?.().toLocaleDateString()||"—"}</span>
+          </div>
+        ))
+      }
+    </div>
+  </>);
+}
+
+// ════════════════════════════
+// USERS TAB
+// ════════════════════════════
+function Users({users,loading,onRefresh,showToast}){
+  const [search,setSearch]=useState("");
+  const [filter,setFilter]=useState("all"); // all | active | banned
+  const [expanded,setExpanded]=useState(null);
+  const [userWFs,setUserWFs]=useState({});
+  const [wfLoading,setWFLoading]=useState(false);
+  const [selectedUser,setSelectedUser]=useState(null);
+
+  const filtered=users.filter(u=>{
+    const q=search.toLowerCase();
+    const matchQ=!q||(u.email||"").toLowerCase().includes(q)||(u.name||"").toLowerCase().includes(q)||(u.uid||"").toLowerCase().includes(q);
+    const matchF=filter==="all"||(filter==="banned"&&u.banned)||(filter==="active"&&!u.banned);
+    return matchQ&&matchF;
+  });
+
+  const loadWFs=async(uid)=>{
+    if(userWFs[uid])return;
+    setWFLoading(true);
+    const wfs=await getUserWFs(uid);
+    setUserWFs(p=>({...p,[uid]:wfs}));
+    setWFLoading(false);
+  };
+
+  const toggleExpand=async(uid)=>{
+    if(expanded===uid){setExpanded(null);}
+    else{setExpanded(uid);await loadWFs(uid);}
+  };
+
+  const doBan=async(uid,ban)=>{
+    try{
+      await banUser(uid,ban);
+      showToast(ban?"🚫 User banned":"✅ User unbanned");
+      onRefresh();
+    }catch(e){showToast("✕ "+e.message,"#ef4444");}
+  };
+
+  const doDelete=async(uid)=>{
+    if(!confirm("এই user এবং তার সব workflow delete করবো?\n\nএটা undo করা যাবে না।"))return;
+    try{
+      await deleteUser(uid);
+      showToast("🗑 User deleted");
+      onRefresh();
+    }catch(e){showToast("✕ "+e.message,"#ef4444");}
+  };
+
+  const doDeleteWF=async(uid,wfId,wfName)=>{
+    if(!confirm(`"${wfName}" workflow delete করবো?`))return;
+    try{
+      await deleteWF(uid,wfId);
+      setUserWFs(p=>({...p,[uid]:p[uid].filter(w=>w.id!==wfId)}));
+      showToast("🗑 Workflow deleted");
+    }catch(e){showToast("✕ "+e.message,"#ef4444");}
+  };
+
+  return(<>
+    {/* Search & filter */}
+    <input className="search-box" value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Name, email বা UID দিয়ে খোঁজো…"/>
+    <div style={{display:"flex",gap:5,marginBottom:10}}>
+      {[["all","সবাই"],["active","Active"],["banned","Banned"]].map(([k,l])=>(
+        <div key={k} onClick={()=>setFilter(k)} style={{padding:"5px 12px",borderRadius:20,border:"1px solid",cursor:"pointer",fontSize:11,color:filter===k?"var(--pu)":
